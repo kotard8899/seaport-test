@@ -139,7 +139,7 @@ function W3WalletDriver () {
         })
         const chainId = parseInt(await detectNetwork(W3Wallet.provider))
         if (accounts.length > 0) {
-          if (chainId !== 1 && chainId !== 56) {
+          if (chainId !== 4) {
             W3WalletDispatch({
               type: "updateChainId",
               payload: await switchNetwork(W3Wallet.provider),
