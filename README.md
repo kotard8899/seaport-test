@@ -6,6 +6,6 @@ First, run the development server:
 
 ```bash
 pnpm i
-pnpm run dev
+pnpm dev
 ```
 
