@@ -2,9 +2,7 @@ import { ethers } from "ethers";
 
 const { keccak256 } = ethers.utils;
 
-type BufferElementPositionIndex = { [key: string]: number };
-
-export const merkleTree = (tokenIds: ethers.BigNumber[]) => {
+export const merkleTree = (tokenIds) => {
   const elements = tokenIds
     .map((tokenId) =>
       Buffer.from(tokenId.toHexString().slice(2).padStart(64, "0"), "hex")
@@ -15,7 +13,7 @@ export const merkleTree = (tokenIds: ethers.BigNumber[]) => {
     });
 
   const bufferElementPositionIndex = elements.reduce(
-    (memo: BufferElementPositionIndex, el, index) => {
+    (memo, el, index) => {
       memo["0x" + el.toString("hex")] = index;
       return memo;
     },
@@ -45,12 +43,12 @@ export const merkleTree = (tokenIds: ethers.BigNumber[]) => {
   };
 };
 
-const getLayers = (elements: Buffer[]) => {
+const getLayers = (elements) => {
   if (elements.length === 0) {
     throw new Error("empty tree");
   }
 
-  const layers: Buffer[][] = [];
+  const layers = [];
   layers.push(elements.map((el) => Buffer.from(keccak256(el).slice(2), "hex")));
 
   // Get next layer until we reach the root
@@ -61,8 +59,8 @@ const getLayers = (elements: Buffer[]) => {
   return layers;
 };
 
-const getNextLayer = (elements: Buffer[]) => {
-  return elements.reduce((layer: Buffer[], el, idx, arr) => {
+const getNextLayer = (elements) => {
+  return elements.reduce((layer, el, idx, arr) => {
     if (idx % 2 === 0) {
       // Hash the current element with its pair element
       layer.push(combinedHash(el, arr[idx + 1]));
@@ -72,7 +70,7 @@ const getNextLayer = (elements: Buffer[]) => {
   }, []);
 };
 
-const combinedHash = (first: Buffer, second: Buffer) => {
+const combinedHash = (first, second) => {
   if (!first) {
     return second;
   }
@@ -87,9 +85,9 @@ const combinedHash = (first: Buffer, second: Buffer) => {
 };
 
 const getHexProof = (
-  el: Buffer,
-  bufferElementPositionIndex: BufferElementPositionIndex,
-  layers: Buffer[][]
+  el,
+  bufferElementPositionIndex,
+  layers
 ) => {
   let idx = bufferElementPositionIndex["0x" + el.toString("hex")];
 
@@ -97,7 +95,7 @@ const getHexProof = (
     throw new Error("Element does not exist in Merkle tree");
   }
 
-  const proofBuffer = layers.reduce((proof: Buffer[], layer) => {
+  const proofBuffer = layers.reduce((proof, layer) => {
     const pairIdx = idx % 2 === 0 ? idx + 1 : idx - 1;
     const pairElement = pairIdx < layer.length ? layer[pairIdx] : null;
 

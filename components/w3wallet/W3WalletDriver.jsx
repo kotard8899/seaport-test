@@ -79,7 +79,9 @@ function W3WalletDriver () {
     setIsModal(false)
     W3WalletDispatch({
       type: "updateAccounts",
-      payload: { accounts },
+      payload: {
+        accounts
+      },
     })
     if (walletName === "metamask") {
       const chainId = parseInt(await detectNetwork(W3Wallet.provider))
@@ -159,6 +161,14 @@ function W3WalletDriver () {
         W3WalletDispatch({
           type: "detectNetwork",
           payload: parseInt(chainId),
+        })
+      })
+      W3Wallet.provider.on("accountsChanged", (accounts) => {
+        W3WalletDispatch({
+          type: "updateAccounts",
+          payload: {
+            accounts,
+          },
         })
       })
     }

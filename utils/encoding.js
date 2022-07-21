@@ -1,28 +1,11 @@
 import { randomBytes as nodeRandomBytes } from "crypto";
 import { BigNumber, constants, utils } from "ethers";
 
-import type {
-  BasicOrderParameters,
-  ConsiderationItem,
-  CriteriaResolver,
-  Fulfillment,
-  FulfillmentComponent,
-  OfferItem,
-  Order,
-  OrderComponents,
-} from "./types";
-import type { BigNumberish } from "ethers";
-
-
-export const { parseEther } = utils;
-
-const randomBytes = (n: number) => nodeRandomBytes(n).toString("hex");
-
-export const randomHex = (bytes = 32) => `0x${randomBytes(bytes)}`;
+const randomBytes = (n) => nodeRandomBytes(n).toString("hex");
 
 const hexRegex = /[A-Fa-fx]/g;
 
-const toHex = (n: BigNumberish, numBytes: number = 0) => {
+const toHex = (n, numBytes = 0) => {
   const asHexString = BigNumber.isBigNumber(n)
     ? n.toHexString().slice(2)
     : typeof n === "string"
@@ -33,12 +16,15 @@ const toHex = (n: BigNumberish, numBytes: number = 0) => {
   return `0x${asHexString.padStart(numBytes * 2, "0")}`;
 };
 
+export const { parseEther } = utils;
 
-export const toBN = (n: BigNumberish) => BigNumber.from(toHex(n));
+export const randomHex = (bytes = 32) => `0x${randomBytes(bytes)}`;
 
-export const toKey = (n: BigNumberish) => toHex(n, 32);
+export const toBN = (n) => BigNumber.from(toHex(n));
 
-export const convertSignatureToEIP2098 = (signature: string) => {
+export const toKey = (n) => toHex(n, 32);
+
+export const convertSignatureToEIP2098 = (signature) => {
   if (signature.length === 130) {
     return signature;
   }
@@ -51,11 +37,11 @@ export const convertSignatureToEIP2098 = (signature: string) => {
 };
 
 export const getBasicOrderParameters = (
-  basicOrderRouteType: number,
-  order: Order,
-  fulfillerConduitKey: string | boolean = false,
-  tips: { amount: BigNumber; recipient: string }[] = []
-): BasicOrderParameters => ({
+  basicOrderRouteType,
+  order,
+  fulfillerConduitKey = false,
+  tips = []
+) => ({
   offerer: order.parameters.offerer,
   zone: order.parameters.zone,
   basicOrderType: order.parameters.orderType + 4 * basicOrderRouteType,
@@ -86,17 +72,15 @@ export const getBasicOrderParameters = (
   ],
 });
 
-export const getOfferOrConsiderationItem = <
-  RecipientType extends string | undefined = undefined
->(
-  itemType: number = 0,
-  token: string = constants.AddressZero,
-  identifierOrCriteria: BigNumberish = 0,
-  startAmount: BigNumberish = 1,
-  endAmount: BigNumberish = 1,
-  recipient?: RecipientType
-): RecipientType extends string ? ConsiderationItem : OfferItem => {
-  const offerItem: OfferItem = {
+export const getOfferOrConsiderationItem = (
+  itemType = 0,
+  token = constants.AddressZero,
+  identifierOrCriteria = 0,
+  startAmount = 1,
+  endAmount = 1,
+  recipient
+) => {
+  const offerItem = {
     itemType,
     token,
     identifierOrCriteria: toBN(identifierOrCriteria),
@@ -106,47 +90,47 @@ export const getOfferOrConsiderationItem = <
   if (typeof recipient === "string") {
     return {
       ...offerItem,
-      recipient: recipient as string,
-    } as ConsiderationItem;
+      recipient,
+    };
   }
-  return offerItem as any;
+  return offerItem;
 };
 
 export const getItemETH = (
-  startAmount: BigNumberish = 1,
-  endAmount: BigNumberish = 1,
-  recipient?: string
+  startAmount,
+  endAmount,
+  recipient
 ) =>
   getOfferOrConsiderationItem(
     0,
     constants.AddressZero,
     0,
-    toBN(startAmount),
-    toBN(endAmount),
+    parseEther(String(startAmount)),
+    parseEther(String(endAmount)),
     recipient
   );
 
 export const getItem20 = (
-  token: string,
-  startAmount: BigNumberish,
-  endAmount: BigNumberish,
-  recipient?: string,
+  token,
+  startAmount,
+  endAmount,
+  recipient,
 ) =>
   getOfferOrConsiderationItem(
     1,
     token,
     0,
-    startAmount,
-    endAmount,
+    parseEther(String(startAmount)),
+    parseEther(String(endAmount)),
     recipient
   );
 
 export const getItem721 = (
-  token: string,
-  identifierOrCriteria: BigNumberish,
-  startAmount: number = 1,
-  endAmount: number = 1,
-  recipient?: string
+  token,
+  identifierOrCriteria,
+  startAmount = 1,
+  endAmount = 1,
+  recipient
 ) =>
   getOfferOrConsiderationItem(
     2,
@@ -158,11 +142,11 @@ export const getItem721 = (
   );
 
 export const getItem1155 = (
-  token: string,
-  identifierOrCriteria: BigNumberish,
-  startAmount: number = 1,
-  endAmount: number = 1,
-  recipient?: string
+  token,
+  identifierOrCriteria,
+  startAmount = 1,
+  endAmount = 1,
+  recipient
 ) =>
   getOfferOrConsiderationItem(
     3,
@@ -174,25 +158,25 @@ export const getItem1155 = (
   );
 
 export const toFulfillmentComponents = (
-  arr: number[][]
-): FulfillmentComponent[] =>
+  arr
+) =>
   arr.map(([orderIndex, itemIndex]) => ({ orderIndex, itemIndex }));
 
 export const toFulfillment = (
-  offerArr: number[][],
-  considerationsArr: number[][]
-): Fulfillment => ({
+  offerArr,
+  considerationsArr
+) => ({
   offerComponents: toFulfillmentComponents(offerArr),
   considerationComponents: toFulfillmentComponents(considerationsArr),
 });
 
 export const buildResolver = (
-  orderIndex: number,
-  side: 0 | 1,
-  index: number,
-  identifier: BigNumber,
-  criteriaProof: string[]
-): CriteriaResolver => ({
+  orderIndex,
+  side, // 0 | 1
+  index,
+  identifier,
+  criteriaProof
+) => ({
   orderIndex,
   side,
   index,

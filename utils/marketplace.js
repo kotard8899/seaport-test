@@ -3,15 +3,7 @@ import {
   convertSignatureToEIP2098,
   randomHex,
   toBN,
-} from "./encoding.ts";
-
-import type {
-  ConsiderationItem,
-  CriteriaResolver,
-  OfferItem,
-  OrderComponents,
-} from "./types.ts";
-import type { Contract, Wallet } from "ethers";
+} from "./encoding";
 
 const orderType = {
   OrderComponents: [
@@ -45,8 +37,8 @@ const orderType = {
 };
 
 const getOrderHash = async (
-  marketplaceContract: any,
-  orderComponents: OrderComponents
+  marketplaceContract,
+  orderComponents
 ) => {
   const orderHash = await marketplaceContract.getOrderHash(orderComponents);
   return orderHash;
@@ -54,10 +46,10 @@ const getOrderHash = async (
 
 // Returns signature
 export const signOrder = async (
-  marketplaceContract: Contract,
-  chainId: number,
-  orderComponents: OrderComponents,
-  signer: Wallet | Contract,
+  marketplaceContract,
+  chainId,
+  orderComponents,
+  signer,
 ) => {
   // Required for EIP712 signing
   const domainData = {
@@ -87,15 +79,15 @@ export const signOrder = async (
 };
 
 export const createOrder = async (
-  marketplaceContract: Contract,
-  chainId: number,
-  offerer: Wallet | Contract,
-  zone: Wallet | undefined | string = undefined,
-  offer: OfferItem[],
-  consideration: ConsiderationItem[],
-  orderType: number,
-  criteriaResolvers?: CriteriaResolver[],
-  timeFlag?: string | null,
+  marketplaceContract,
+  chainId,
+  offerer,
+  zone = undefined,
+  offer,
+  consideration,
+  orderType,
+  criteriaResolvers,
+  timeFlag,
   zoneHash = constants.HashZero,
   conduitKey = constants.HashZero,
   extraCheap = false
@@ -112,7 +104,7 @@ export const createOrder = async (
   const orderParameters = {
     offerer: offerAddress,
     zone: !extraCheap
-      ? (zone as Wallet).address ?? zone
+      ? zone.address ?? zone
       : constants.AddressZero,
     offer,
     consideration,
