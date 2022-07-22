@@ -199,7 +199,7 @@ export default function Home() {
     offer3.address && checkIsApproved(offer3.address, offer3.type, setOffer3)
     offer4.address && checkIsApproved(offer4.address, offer4.type, setOffer4)
     offer5.address && checkIsApproved(offer5.address, offer5.type, setOffer5)
-  }, [checkIsApproved, offer1.address, offer1.type, offer2.address, offer2.type, offer3.address, offer3.type, offer4.address, offer4.type, offer5.address, offer5.type])
+  }, [checkIsApproved, offer1.address, offer1.type, offer2.address, offer2.type, offer3.address, offer3.type, offer4.address, offer4.type, offer5.address, offer5.type, offer1.isApproved, offer2.isApproved, offer3.isApproved, offer4.isApproved, offer5.isApproved])
 
   useEffect(() => {
     cn1.address && checkIsApproved(cn1.address, cn1.type, setCn1)
@@ -207,7 +207,7 @@ export default function Home() {
     cn3.address && checkIsApproved(cn3.address, cn3.type, setCn3)
     cn4.address && checkIsApproved(cn4.address, cn4.type, setCn4)
     cn5.address && checkIsApproved(cn5.address, cn5.type, setCn5)
-  }, [checkIsApproved, cn1.address, cn1.type, cn2.address, cn2.type, cn3.address, cn3.type, cn4.address, cn4.type, cn5.address, cn5.type])
+  }, [checkIsApproved, cn1.address, cn1.type, cn2.address, cn2.type, cn3.address, cn3.type, cn4.address, cn4.type, cn5.address, cn5.type, cn1.isApproved, cn2.isApproved, cn3.isApproved, cn4.isApproved, cn5.isApproved])
 
   // const offer = [
   //   // ERC721
@@ -431,11 +431,10 @@ export default function Home() {
             <OfferItem offer={cn5} setOffer={setCn5} approve={approve} cn={true} />
           </div>
         </div>
-        <button onClick={create}>create order</button>
-        <button onClick={handleFullfill}>fullfill order</button>
-        {/* <button onClick={validate}>validate order</button>
-        <button onClick={cancel}>cancel order</button>
-        <button onClick={fullfillBasic}>fullfill basic order</button> */}
+        <button onClick={create} className="border-2 py-2 mt-2 px-5">create order</button>
+        <button onClick={handleFullfill} className="border-2 py-2 mt-2 px-5">fullfill order</button>
+        <button onClick={validate} className="border-2 py-2 mt-2 px-5">validate order</button>
+        <button onClick={cancel} className="border-2 py-2 mt-2 px-5">cancel order</button>
       </main>
     </div>
   );

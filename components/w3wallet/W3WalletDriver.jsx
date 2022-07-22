@@ -188,11 +188,14 @@ function W3WalletDriver () {
         </button>
       )}
       {W3Wallet.isMetaMaskConnected && (
-        <button className={`inline-block py-4 px-8 text-mon font-bold ${styles.blurBtn}`}
-          onClick={handleDisconnect}
-        >
-          {accountShorten}
-        </button>
+        <>
+          <button className={`inline-block py-4 px-8 text-mon font-bold ${styles.blurBtn}`}
+            onClick={handleDisconnect}
+          >
+            {accountShorten}
+          </button>
+          <span>複製用：{W3Wallet.accounts[0]}</span>
+        </>
       )}
       {isModal &&
         <WalletList
