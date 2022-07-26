@@ -141,6 +141,22 @@ export const getItem721 = (
     recipient
   );
 
+export const getItem721WithCriteria = (
+  token,
+  identifierOrCriteria,
+  startAmount = 1,
+  endAmount = 1,
+  recipient
+) =>
+  getOfferOrConsiderationItem(
+    4,
+    token,
+    identifierOrCriteria,
+    startAmount,
+    endAmount,
+    recipient
+  );
+
 export const getItem1155 = (
   token,
   identifierOrCriteria,
@@ -150,6 +166,22 @@ export const getItem1155 = (
 ) =>
   getOfferOrConsiderationItem(
     3,
+    token,
+    identifierOrCriteria,
+    startAmount,
+    endAmount,
+    recipient
+  );
+
+export const getItem1155WithCriteria = (
+  token,
+  identifierOrCriteria,
+  startAmount = 1,
+  endAmount = 1,
+  recipient
+) =>
+  getOfferOrConsiderationItem(
+    5,
     token,
     identifierOrCriteria,
     startAmount,

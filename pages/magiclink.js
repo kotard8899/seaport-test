@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Magic } from "magic-sdk";
 import { ConnectExtension } from "@magic-ext/connect";
-import Web3 from "web3";
 import { providers, utils } from "ethers"
 
 const Magiclink = () => {
