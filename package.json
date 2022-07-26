@@ -9,13 +9,16 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@magic-ext/connect": "^0.1.6",
     "@metamask/detect-provider": "^1.2.0",
     "ethers": "^5.6.9",
+    "magic-sdk": "^8.1.1",
     "next": "12.2.2",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-inlinesvg": "^3.0.0",
-    "sass": "^1.53.0"
+    "sass": "^1.53.0",
+    "web3": "^1.7.4"
   },
   "devDependencies": {
     "@types/node": "^18.0.6",
