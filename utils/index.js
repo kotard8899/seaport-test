@@ -12,5 +12,7 @@ export {
   getItem1155WithCriteria,
   buildResolver,
   parseEther,
+  defaultBuyNowMirrorFulfillment,
+  createMirrorBuyNowOrder,
 } from "./encoding"
 export { signOrder, createOrder } from "./marketplace"

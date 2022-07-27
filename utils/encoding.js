@@ -1,5 +1,6 @@
 import { randomBytes as nodeRandomBytes } from "crypto";
 import { BigNumber, constants, utils } from "ethers";
+import { signOrder } from "./marketplace";
 
 const randomBytes = (n) => nodeRandomBytes(n).toString("hex");
 
@@ -189,12 +190,12 @@ export const getItem1155WithCriteria = (
     recipient
   );
 
-export const toFulfillmentComponents = (
+const toFulfillmentComponents = (
   arr
 ) =>
   arr.map(([orderIndex, itemIndex]) => ({ orderIndex, itemIndex }));
 
-export const toFulfillment = (
+const toFulfillment = (
   offerArr,
   considerationsArr
 ) => ({
@@ -216,14 +217,14 @@ export const buildResolver = (
   criteriaProof,
 });
 
-// export const defaultBuyNowMirrorFulfillment = [
-//   [[[0, 0]], [[1, 0]]],
-//   [[[1, 0]], [[0, 0]]],
-//   [[[1, 0]], [[0, 1]]],
-//   [[[1, 0]], [[0, 2]]],
-// ].map(([offerArr, considerationArr]) =>
-//   toFulfillment(offerArr, considerationArr)
-// );
+export const defaultBuyNowMirrorFulfillment = [
+  [[[0, 0]], [[1, 0]]],
+  [[[1, 0]], [[0, 0]]],
+  [[[1, 0]], [[0, 1]]],
+  [[[1, 0]], [[0, 2]]],
+].map(([offerArr, considerationArr]) =>
+  toFulfillment(offerArr, considerationArr)
+);
 
 // export const defaultAcceptOfferMirrorFulfillment = [
 //   [[[1, 0]], [[0, 0]]],
@@ -233,3 +234,144 @@ export const buildResolver = (
 // ].map(([offerArr, considerationArr]) =>
 //   toFulfillment(offerArr, considerationArr)
 // );
+
+export const createMirrorBuyNowOrder = async (
+  marketplaceContract,
+  offerer,
+  zone,
+  order,
+  chainId,
+  conduitKey = constants.HashZero
+) => {
+  const counter = await marketplaceContract.getCounter(offerer.address);
+  const salt = randomHex();
+  const startTime = order.parameters.startTime;
+  const endTime = order.parameters.endTime;
+
+  const compressedOfferItems = [];
+  for (const {
+    itemType,
+    token,
+    identifierOrCriteria,
+    startAmount,
+    endAmount,
+  } of order.parameters.offer) {
+    if (
+      !compressedOfferItems
+        .map((x) => `${x.itemType}+${x.token}+${x.identifierOrCriteria}`)
+        .includes(`${itemType}+${token}+${identifierOrCriteria}`)
+    ) {
+      compressedOfferItems.push({
+        itemType,
+        token,
+        identifierOrCriteria,
+        startAmount: startAmount.eq(endAmount)
+          ? startAmount
+          : startAmount.sub(1),
+        endAmount: startAmount.eq(endAmount) ? endAmount : endAmount.sub(1),
+      });
+    } else {
+      const index = compressedOfferItems
+        .map((x) => `${x.itemType}+${x.token}+${x.identifierOrCriteria}`)
+        .indexOf(`${itemType}+${token}+${identifierOrCriteria}`);
+
+      compressedOfferItems[index].startAmount = compressedOfferItems[
+        index
+      ].startAmount.add(
+        startAmount.eq(endAmount) ? startAmount : startAmount.sub(1)
+      );
+      compressedOfferItems[index].endAmount = compressedOfferItems[
+        index
+      ].endAmount.add(
+        startAmount.eq(endAmount) ? endAmount : endAmount.sub(1)
+      );
+    }
+  }
+
+  const compressedConsiderationItems = [];
+  for (const {
+    itemType,
+    token,
+    identifierOrCriteria,
+    startAmount,
+    endAmount,
+    recipient,
+  } of order.parameters.consideration) {
+    if (
+      !compressedConsiderationItems
+        .map((x) => `${x.itemType}+${x.token}+${x.identifierOrCriteria}`)
+        .includes(`${itemType}+${token}+${identifierOrCriteria}`)
+    ) {
+      compressedConsiderationItems.push({
+        itemType,
+        token,
+        identifierOrCriteria,
+        startAmount: startAmount.eq(endAmount)
+          ? startAmount
+          : startAmount.add(1),
+        endAmount: startAmount.eq(endAmount) ? endAmount : endAmount.add(1),
+        recipient,
+      });
+    } else {
+      const index = compressedConsiderationItems
+        .map((x) => `${x.itemType}+${x.token}+${x.identifierOrCriteria}`)
+        .indexOf(`${itemType}+${token}+${identifierOrCriteria}`);
+
+      compressedConsiderationItems[index].startAmount =
+        compressedConsiderationItems[index].startAmount.add(
+          startAmount.eq(endAmount) ? startAmount : startAmount.add(1)
+        );
+      compressedConsiderationItems[index].endAmount =
+        compressedConsiderationItems[index].endAmount.add(
+          startAmount.eq(endAmount) ? endAmount : endAmount.add(1)
+        );
+    }
+  }
+
+  const orderParameters = {
+    offerer: offerer.address,
+    zone,
+    offer: compressedConsiderationItems.map((x) => ({ ...x })),
+    consideration: compressedOfferItems.map((x) => ({
+      ...x,
+      recipient: offerer.address,
+    })),
+    totalOriginalConsiderationItems: compressedOfferItems.length,
+    orderType: order.parameters.orderType, // FULL_OPEN
+    zoneHash: "0x".padEnd(66, "0"),
+    salt,
+    conduitKey,
+    startTime,
+    endTime,
+  };
+
+  const orderComponents = {
+    ...orderParameters,
+    counter,
+  };
+
+  const flatSig = await signOrder(marketplaceContract, chainId, orderComponents, offerer);
+
+  const mirrorOrder = {
+    parameters: orderParameters,
+    signature: flatSig,
+    numerator: order.numerator, // only used for advanced orders
+    denominator: order.denominator, // only used for advanced orders
+    extraData: "0x", // only used for advanced orders
+  };
+
+  // How much ether (at most) needs to be supplied when fulfilling the order
+  const mirrorValue = orderParameters.consideration
+    .map((x) =>
+      x.itemType === 0
+        ? x.endAmount.gt(x.startAmount)
+          ? x.endAmount
+          : x.startAmount
+        : toBN(0)
+    )
+    .reduce((a, b) => a.add(b), toBN(0));
+
+  return {
+    mirrorOrder,
+  };
+};
