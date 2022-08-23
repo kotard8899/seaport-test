@@ -1,7 +1,7 @@
 import styles from "../styles/Home.module.css";
 import { useState, useEffect, useCallback } from "react";
 import { W3WalletDriver, useW3Wallet } from "../components/w3wallet";
-import { constants, Contract } from "ethers";
+import { constants, Contract, BigNumber } from "ethers";
 import { approveABI, seaportABI, erc20ABI } from "../constants"
 import { 
   owner, seaport, zone, ERC721Token, ERC1155Token, LOOT,
@@ -17,6 +17,7 @@ import {
   getBasicOrderParameters,
   createOrder,
 } from "../utils"
+import SDK from "../sdk"
 
 const OfferItem = ({ offer, setOffer, approve, cn }) => {
   const { type } = offer
@@ -49,8 +50,8 @@ const OfferItem = ({ offer, setOffer, approve, cn }) => {
       {type !== "NATIVE" && <input
         type="text"
         placeholder="address"
-        value={offer.address}
-        onChange={(e) => setOffer({ ...offer, address: e.target.value})}
+        value={offer.token}
+        onChange={(e) => setOffer({ ...offer, token: e.target.value})}
         className="border-2 p-1"
       />}
       {type !== "721" && <input
@@ -87,6 +88,7 @@ const OfferItem = ({ offer, setOffer, approve, cn }) => {
 export default function Home() {
   const [W3Wallet] = useW3Wallet()
   const { eProvider, signer, accounts, chainId } = W3Wallet
+  const sdk = eProvider && chainId && new SDK(eProvider, signer)
 
   const marketplaceContract = new Contract(seaport, seaportABI, eProvider)
   const tokenId = 50
@@ -102,50 +104,52 @@ export default function Home() {
   const [offer1, setOffer1] = useState({
     isApproved: false,
     type: "721",
-    address: "",
+    token: "",
     amount: undefined,
-    tokenId: undefined
+    tokenId: undefined,
+    itemType: 2
   })
   const [offer2, setOffer2] = useState({
     isApproved: false,
     type: "721",
-    address: "",
+    token: "",
     amount: undefined,
     tokenId: undefined
   })
   const [offer3, setOffer3] = useState({
     isApproved: false,
     type: "721",
-    address: "",
+    token: "",
     amount: undefined,
     tokenId: undefined
   })
   const [offer4, setOffer4] = useState({
     isApproved: false,
     type: "721",
-    address: "",
+    token: "",
     amount: undefined,
     tokenId: undefined
   })
   const [offer5, setOffer5] = useState({
     isApproved: false,
     type: "721",
-    address: "",
+    token: "",
     amount: undefined,
     tokenId: undefined
   })
   const [cn1, setCn1] = useState({
     isApproved: false,
     type: "NATIVE",
-    address: "",
+    token: "",
     amount: undefined,
     tokenId: undefined,
-    receipt: undefined
+    receipt: undefined,
+
   })
   const [cn2, setCn2] = useState({
     isApproved: false,
     type: "NATIVE",
-    address: "",
+    token: "",
     amount: undefined,
     tokenId: undefined,
     receipt: undefined
@@ -153,7 +157,7 @@ export default function Home() {
   const [cn3, setCn3] = useState({
     isApproved: false,
     type: "NATIVE",
-    address: "",
+    token: "",
     amount: undefined,
     tokenId: undefined,
     receipt: undefined
@@ -161,7 +165,7 @@ export default function Home() {
   const [cn4, setCn4] = useState({
     isApproved: false,
     type: "NATIVE",
-    address: "",
+    token: "",
     amount: undefined,
     tokenId: undefined,
     receipt: undefined
@@ -169,7 +173,7 @@ export default function Home() {
   const [cn5, setCn5] = useState({
     isApproved: false,
     type: "NATIVE",
-    address: "",
+    token: "",
     amount: undefined,
     tokenId: undefined,
     receipt: undefined
@@ -177,29 +181,31 @@ export default function Home() {
 
   const account = accounts[0];
 
-  const checkIsApproved = useCallback(async (address, type, set) => {
-    let contract
-    let isApproved
-    if (type === "20") {
-      contract = new Contract(address, erc20ABI, eProvider)
-      const allowance = await contract.connect(signer).allowance(account, seaport)
-      if (allowance / Math.pow(10, 18) >= 10000000) {
-        isApproved = true
-      }
-    } else {
-      contract = new Contract(address, approveABI, eProvider)
-      isApproved = await contract.connect(signer).isApprovedForAll(account, seaport)
-    }
-    isApproved && set(prev => ({ ...prev, isApproved }))
-  }, [account, eProvider, signer])
+  const checkIsApproved = useCallback(async (offer, setState) => {
+    // let contract
+    // let isApproved
+    // if (type === "20") {
+    //   contract = new Contract(address, erc20ABI, eProvider)
+    //   const allowance = await contract.connect(signer).allowance(account, seaport)
+    //   if (allowance / Math.pow(10, 18) >= 10000000) {
+    //     isApproved = true
+    //   }
+    // } else {
+    //   contract = new Contract(address, approveABI, eProvider)
+    //   isApproved = await contract.connect(signer).isApprovedForAll(account, seaport)
+    // }
+    // isApproved && set(prev => ({ ...prev, isApproved }))
+    const isApproved = await sdk.loadApprovalStatus(offer, account)
+    isApproved && setState(prev => ({ ...prev, isApproved }))
+  }, [account, sdk])
 
   useEffect(() => {
-    offer1.address && checkIsApproved(offer1.address, offer1.type, setOffer1)
-    offer2.address && checkIsApproved(offer2.address, offer2.type, setOffer2)
-    offer3.address && checkIsApproved(offer3.address, offer3.type, setOffer3)
-    offer4.address && checkIsApproved(offer4.address, offer4.type, setOffer4)
-    offer5.address && checkIsApproved(offer5.address, offer5.type, setOffer5)
-  }, [checkIsApproved, offer1.address, offer1.type, offer2.address, offer2.type, offer3.address, offer3.type, offer4.address, offer4.type, offer5.address, offer5.type, offer1.isApproved, offer2.isApproved, offer3.isApproved, offer4.isApproved, offer5.isApproved])
+    offer1.token && offer1.tokenId && checkIsApproved(offer1, setOffer1)
+    offer2.token && checkIsApproved(offer2.token, offer2.type, setOffer2)
+    offer3.token && checkIsApproved(offer3.token, offer3.type, setOffer3)
+    offer4.token && checkIsApproved(offer4.token, offer4.type, setOffer4)
+    offer5.token && checkIsApproved(offer5.token, offer5.type, setOffer5)
+  }, [checkIsApproved, offer1.token, offer1.tokenId, offer2.address, offer2.type, offer3.address, offer3.type, offer4.address, offer4.type, offer5.address, offer5.type, offer1.isApproved, offer2.isApproved, offer3.isApproved, offer4.isApproved, offer5.isApproved])
 
   useEffect(() => {
     cn1.address && checkIsApproved(cn1.address, cn1.type, setCn1)
@@ -240,22 +246,22 @@ export default function Home() {
   //   // getItem1155(ERC1155Token, ERC1155TokenId2, 1, 1, account),
   // ]
 
-  const getItem = ({ type, address, amount, tokenId, recipient }) => {
+  const getItem = ({ type, token, amount, tokenId, recipient }) => {
     if (type === "NATIVE") {
       return getItemETH(amount, amount, recipient)
     } else if (type === "20") {
-      return getItem20(address, amount, amount, recipient)
+      return getItem20(token, amount, amount, recipient)
     } else if (type === "721") {
-      return getItem721(address, tokenId, 1, 1, recipient)
+      return getItem721(token, tokenId, 1, 1, recipient)
     } else {
-      return getItem1155(address, tokenId, amount, amount, recipient)
+      return getItem1155(token, tokenId, amount, amount, recipient)
     }
   }
 
   const create = async () => {
     const offer = []
     const consideration = []
-    offer1.address && offer.push(getItem(offer1))
+    offer1.token && offer.push(getItem(offer1))
     offer2.address && offer.push(getItem(offer2))
     offer3.address && offer.push(getItem(offer3))
     offer4.address && offer.push(getItem(offer4))
@@ -265,16 +271,12 @@ export default function Home() {
     cn3.amount && consideration.push(getItem(cn3))
     cn4.amount && consideration.push(getItem(cn4))
     cn5.amount && consideration.push(getItem(cn5))
-    const { order, value, orderComponents } = await createOrder(
-      marketplaceContract,
-      chainId,
-      signer,
-      zone,
+    const { order, value, orderComponents, orderHash } = await sdk.createOrder(
       offer,
       consideration,
       0, // FULL_OPEN
+      zone,
       // [],
-      // null,
       // constants.HashZero,
       // constants.HashZero
       // true // extraCheap
@@ -287,41 +289,44 @@ export default function Home() {
   }
 
   const handleFullfill = async () => {
-    let func = fullfill
-    const cnItemType = consideration[0].itemType
-    let isBasic
+    // let func = fullfill
+    // const cnItemType = consideration[0].itemType
+    // let isBasic
+    // console.log(offer[0].itemType)
 
-    // fulfillBasicOrder條件
-    // offer只能有一個 (20 || 721 || 1155)
-    // offer為20時，cn的第一項一定要是721 || 1155，且其他項也只能為20
-    // offer為721 || 1155時，cn每項的type都要相等，且只能為NATIVE || 20
-    // 其餘皆為 fullfillOrder
-    if (offer.length === 1) {
-      if (offer[0].itemType === 1) {
-        if (cnItemType === 2 || cnItemType === 3) {
-          for (let { itemType } of consideration.slice(1)) {
-            if (itemType === 0 || itemType === 2 || itemType === 3) {
-              isBasic = false
-              break
-            }
-            isBasic = true
-          }
-        }
-      } else {
-        if (cnItemType === 0 || cnItemType === 1) {
-          for (let { itemType } of consideration.slice(1)) {
-            if (itemType !== cnItemType) {
-              isBasic = false
-              break
-            }
-            isBasic = true
-          }
-        }
-      }
-    }
-
-    if (isBasic) func = fullfillBasic
-    func()
+    // // fulfillBasicOrder條件
+    // // offer只能有一個 (20 || 721 || 1155)
+    // // offer為20時，cn的第一項一定要是721 || 1155，且其他項也只能為20
+    // // offer為721 || 1155時，cn每項的type都要相等，且只能為NATIVE || 20
+    // // 其餘皆為 fullfillOrder
+    // if (offer.length === 1) {
+    //   if (offer[0].itemType === 1) {
+    //     if (cnItemType === 2 || cnItemType === 3) {
+    //       isBasic = true
+    //       for (const { itemType } of consideration.slice(1)) {
+    //         if (itemType === 0 || itemType === 2 || itemType === 3) {
+    //           isBasic = false
+    //           break
+    //         }
+    //       }
+    //     }
+    //   } else {
+    //     if (cnItemType === 0 || cnItemType === 1) {
+    //       isBasic = true
+    //       for (const { itemType } of consideration.slice(1)) {
+    //         if (itemType !== cnItemType) {
+    //           isBasic = false
+    //           break
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+    // console.log(isBasic)
+    // if (isBasic) func = fullfillBasic
+    // func()
+    const tx = await sdk.fulfill(order, value)
+    const receipt = await tx.wait();
   }
 
   const fullfill = async () => {
@@ -339,11 +344,11 @@ export default function Home() {
     const cnItemType = consideration[0].itemType
     let basicOrderRouteType
     if (offerItemType === 1) {
-      cnItemType === 2 ? basicOrderRouteType = 4 : basicOrderRouteType = 5
+      basicOrderRouteType = cnItemType === 2 ? 4 : 5
     } else if (offerItemType === 2) {
-      cnItemType === 0 ? basicOrderRouteType = 0 : basicOrderRouteType = 2
+      basicOrderRouteType = cnItemType === 0 ? 0 : 2
     } else {
-      cnItemType === 0 ? basicOrderRouteType = 1 : basicOrderRouteType = 3
+      basicOrderRouteType = cnItemType === 0 ? 1 : 3
     }
     const basicOrderParameters = getBasicOrderParameters(
       basicOrderRouteType,
@@ -366,41 +371,57 @@ export default function Home() {
   }
 
   const validate = async () => {
-    const tx = marketplaceContract
-      .connect(signer)
-      .validate([order]);
+    const tx = sdk.validate(orderComponents)
     const receipt = await (await tx).wait();
     console.log(receipt)
   }
 
   const cancel = async () => {
-    const tx = marketplaceContract
-      .connect(signer)
-      .cancel([orderComponents]);
+    // const tx = marketplaceContract
+    //   .connect(signer)
+    //   .cancel([orderComponents]);
+    const tx = sdk.cancelOrder([orderComponents])
     const receipt = await (await tx).wait();
     console.log(receipt)
 
   }
   
   const approve = async (offer, setOffer) => {
-    const { type, address } = offer
-    let contract
-    let tx
-    if (type === "20") {
-      contract = new Contract(address, erc20ABI, eProvider)
-      tx = contract.connect(signer).approve(seaport, parseEther("10000000000"))
-    } else {
-      contract = new Contract(address, approveABI, eProvider)
-      tx = contract.connect(signer).setApprovalForAll(seaport, true)
-    }
-    await (await tx).wait();
+    // const { type, address } = offer
+    // let contract
+    // let tx
+    // if (type === "20") {
+    //   contract = new Contract(address, erc20ABI, eProvider)
+    //   tx = contract.connect(signer).approve(seaport, parseEther("10000000000"))
+    // } else {
+    //   contract = new Contract(address, approveABI, eProvider)
+    //   tx = contract.connect(signer).setApprovalForAll(seaport, true)
+    // }
+    const tx = await sdk.approveAsset(offer)
+    const r = await tx.wait();
+    console.log({tx,r})
     setOffer({ ...offer, isApproved: true })
   }
 
+  const toHex = (n, numBytes = 0) => {
+    const asHexString = BigNumber.isBigNumber(n)
+      ? n.toHexString().slice(2)
+      : typeof n === "string"
+      ? hexRegex.test(n)
+        ? n.replace(/0x/, "")
+        : Number(n).toString(16)
+      : Number(n).toString(16);
+    return `0x${asHexString.padStart(numBytes * 2, "0")}`;
+  };
+  const hexRegex = /[A-Fa-fx]/g;
   return (
     <div className={styles.container}>
-      {console.log()}
       <main className={styles.main}>
+        {console.log(sdk && sdk.getFulfillment(    [
+      [[[0, 0]], [[1, 0]]], //4num分別是 offer，offer裡的位子，cn，cn裡的位子
+      [[[1, 0]], [[0, 0], [0, 1]]],
+      [[[1, 0]], [[1, 1]]],
+    ]))}
         <W3WalletDriver />
         <div className="mb-5">
           <p>

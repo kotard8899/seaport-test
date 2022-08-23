@@ -31,7 +31,7 @@ export const convertSignatureToEIP2098 = (signature) => {
   }
 
   if (signature.length !== 132) {
-    throw Error("invalid signature length (must be 64 or 65 bytes)");
+    throw new Error("invalid signature length (must be 64 or 65 bytes)");
   }
 
   return utils.splitSignature(signature).compact;
@@ -221,11 +221,25 @@ export const defaultBuyNowMirrorFulfillment = [
   [[[0, 0]], [[1, 0]]],
   [[[1, 0]], [[0, 0]]],
   [[[1, 0]], [[0, 1]]],
-  [[[1, 0]], [[0, 2]]],
+  [[[1, 0]], [[1, 1]]],
+  // [[[1, 0]], [[0, 2]]],
 ].map(([offerArr, considerationArr]) =>
   toFulfillment(offerArr, considerationArr)
 );
 
+// 00,10
+// 10,00,01
+// 10,11
+
+// 00,02
+// 01,03
+// 02,04
+// 03,05
+// 04,06
+// 05,07
+// 06,08
+// 10,00
+// 10,01
 // export const defaultAcceptOfferMirrorFulfillment = [
 //   [[[1, 0]], [[0, 0]]],
 //   [[[0, 0]], [[1, 0]]],

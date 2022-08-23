@@ -5,7 +5,7 @@ import { constants, Contract } from "ethers";
 import { seaportABI } from "../constants"
 
 import { 
-  owner, seaport, zone, ERC721Token, ERC1155Token, LOOT,
+  owner, seaport, zone, ERC721Token, ERC1155Token, LOOT, wrapToken
 } from "../constants/contracts"
 import {
   parseEther,
@@ -24,7 +24,6 @@ import {
   createMirrorBuyNowOrder
 } from "../utils"
 
-
 export default function Home() {
   const [W3Wallet] = useW3Wallet()
   const { eProvider, signer, accounts, chainId } = W3Wallet
@@ -41,20 +40,23 @@ export default function Home() {
   const [mirrorOrder, setMirrorOrder] = useState(null)
 
   const offer = [
-    getItem721(ERC721Token, tokenId),
+    getItem721(ERC721Token, 59),
   ]
 
   const consideration = [
-    getItem20(LOOT, 50, 50, account),
-    getItem20(LOOT, 5, 5, zone),
-    getItem20(LOOT, 5, 5, owner),
+    getItem20(wrapToken, 1.4625, 1.4625, account),
+    // getItem20(wrapToken, 0.975, 0.975, account),
+    // getItem20(LOOT, 5, 5, zone),
+    // getItem20(LOOT, 5, 5, owner),
   ]
   const offer2 = [
-    getItem20(LOOT, 70, 70),
+    getItem20(wrapToken, 1.6, 1.6),
   ]
 
   const consideration2 = [
-    getItem721(ERC721Token, tokenId, 1, 1, account),
+    getItem721(ERC721Token, 59, 1, 1, account),
+    getItem20(wrapToken, 0.04, 0.04, zone),
+    // getItem20(LOOT, 5, 5, owner),
   ]
 
   const create = async () => {
@@ -65,7 +67,7 @@ export default function Home() {
       zone,
       offer,
       consideration,
-      0, // FULL_OPEN
+      0,
     )
 
     setOrder(order)
@@ -79,10 +81,36 @@ export default function Home() {
       zone,
       offer2,
       consideration2,
-      0, // FULL_OPEN
+      0,
     )
 
     setOrder2(order)
+  }
+
+  const match = async () => {
+    const fulfillments = defaultBuyNowMirrorFulfillment;
+    const fulfillments2 = [
+      {offerComponents: [{orderIndex: 0, itemIndex: 0}], considerationComponents: [{orderIndex: 1, itemIndex: 0}]},
+      {offerComponents: [{orderIndex: 1, itemIndex: 0}], considerationComponents: [{orderIndex: 0, itemIndex: 0}, {orderIndex: 0, itemIndex: 1}]},
+      // {offerComponents: [{orderIndex: 1, itemIndex: 0}], considerationComponents: [{orderIndex: 0, itemIndex: 1}]},
+      {offerComponents: [{orderIndex: 1, itemIndex: 0}], considerationComponents: [{orderIndex: 1, itemIndex: 1}]},
+
+    ]
+    order.parameters.consideration.push(getItem20(wrapToken, 0.0975, 0.0975, "0x54a6ad13e5ae83a2dfd42440f7ab6d90c03e01d3"))
+
+    const tx = marketplaceContract
+      .connect(signer)
+      .matchOrders(
+        [
+          order,
+          order2,
+        ],
+        fulfillments2, 
+        {
+          value,
+        });
+    const receipt = await (await tx).wait();
+    console.log(receipt)
   }
 
   const mirror = async () => {
@@ -93,24 +121,6 @@ export default function Home() {
     console.log(mirrorOrder)
   }
 
-  const match = async () => {
-    const fulfillments = defaultBuyNowMirrorFulfillment;
-
-    const tx = marketplaceContract
-      .connect(signer)
-      .matchOrders(
-        [
-          order,
-          order2
-        ],
-        fulfillments, 
-        {
-          value,
-        });
-    const receipt = await (await tx).wait();
-    console.log(receipt)
-  }
-
   return (
     <div className={styles.container}>
       {console.log()}
@@ -118,7 +128,7 @@ export default function Home() {
         <W3WalletDriver />
         <button onClick={create}>create order</button>
         <button onClick={create2}>create order2</button>
-        <button onClick={mirror}>mirror</button>
+        {/* <button onClick={mirror}>mirror</button> */}
         <button onClick={match}>match order</button>
       </main>
     </div>
