@@ -23,11 +23,13 @@ import {
   defaultBuyNowMirrorFulfillment,
   createMirrorBuyNowOrder
 } from "../utils"
+import SDK from "../sdk";
 
 export default function Home() {
   const [W3Wallet] = useW3Wallet()
   const { eProvider, signer, accounts, chainId } = W3Wallet
   const account = accounts[0];
+  const sdk = eProvider && chainId && new SDK(eProvider, signer)
 
   const marketplaceContract = new Contract(seaport, seaportABI, eProvider)
   const tokenId = 50
@@ -40,7 +42,7 @@ export default function Home() {
   const [mirrorOrder, setMirrorOrder] = useState(null)
 
   const offer = [
-    getItem721(ERC721Token, 59),
+    getItem721(ERC721Token, 2),
   ]
 
   const consideration = [
@@ -54,9 +56,9 @@ export default function Home() {
   ]
 
   const consideration2 = [
-    getItem721(ERC721Token, 59, 1, 1, account),
-    getItem20(wrapToken, 0.04, 0.04, zone),
-    // getItem20(LOOT, 5, 5, owner),
+    getItem721(ERC721Token, 2, 1, 1, account),
+    getItem20(wrapToken, 0.02, 0.02, zone),
+    getItem20(wrapToken, 0.02, 0.02, owner),
   ]
 
   const create = async () => {
@@ -89,26 +91,25 @@ export default function Home() {
 
   const match = async () => {
     const fulfillments = defaultBuyNowMirrorFulfillment;
-    const fulfillments2 = [
-      {offerComponents: [{orderIndex: 0, itemIndex: 0}], considerationComponents: [{orderIndex: 1, itemIndex: 0}]},
-      {offerComponents: [{orderIndex: 1, itemIndex: 0}], considerationComponents: [{orderIndex: 0, itemIndex: 0}, {orderIndex: 0, itemIndex: 1}]},
-      // {offerComponents: [{orderIndex: 1, itemIndex: 0}], considerationComponents: [{orderIndex: 0, itemIndex: 1}]},
-      {offerComponents: [{orderIndex: 1, itemIndex: 0}], considerationComponents: [{orderIndex: 1, itemIndex: 1}]},
+    const tx = sdk.matchOrders(order, order2, getItem20(wrapToken, 0.0975, 0.0975, "0x64568ace195d79423a4836e84babe4470c2c2067"))
+    // const fulfillments2 = [
+    //   {offerComponents: [{orderIndex: 0, itemIndex: 0}], considerationComponents: [{orderIndex: 1, itemIndex: 0}]},
+    //   {offerComponents: [{orderIndex: 1, itemIndex: 0}], considerationComponents: [{orderIndex: 0, itemIndex: 0}, {orderIndex: 0, itemIndex: 1}]},
+    //   {offerComponents: [{orderIndex: 1, itemIndex: 0}], considerationComponents: [{orderIndex: 1, itemIndex: 1}]},
+    // ]
+    // order.parameters.consideration.push(getItem20(wrapToken, 0.0975, 0.0975, "0x54a6ad13e5ae83a2dfd42440f7ab6d90c03e01d3"))
 
-    ]
-    order.parameters.consideration.push(getItem20(wrapToken, 0.0975, 0.0975, "0x54a6ad13e5ae83a2dfd42440f7ab6d90c03e01d3"))
-
-    const tx = marketplaceContract
-      .connect(signer)
-      .matchOrders(
-        [
-          order,
-          order2,
-        ],
-        fulfillments2, 
-        {
-          value,
-        });
+    // const tx = marketplaceContract
+    //   .connect(signer)
+    //   .matchOrders(
+    //     [
+    //       order,
+    //       order2,
+    //     ],
+    //     fulfillments2, 
+    //     {
+    //       value,
+    //     });
     const receipt = await (await tx).wait();
     console.log(receipt)
   }

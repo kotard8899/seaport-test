@@ -85,7 +85,7 @@ function W3WalletDriver () {
     })
     if (walletName === "metamask") {
       const chainId = parseInt(await detectNetwork(W3Wallet.provider))
-      if (chainId !== 1 && chainId !== 56) {
+      if (chainId !== 4002 || chainId !== 5) {
         W3WalletDispatch({
           type: "updateChainId",
           payload: await switchNetwork(W3Wallet.provider, chainId),
@@ -139,7 +139,7 @@ function W3WalletDriver () {
         })
         const chainId = parseInt(await detectNetwork(W3Wallet.provider))
         if (accounts.length > 0) {
-          if (chainId !== 4) {
+          if (chainId !== 4002 && chainId !== 5) {
             W3WalletDispatch({
               type: "updateChainId",
               payload: await switchNetwork(W3Wallet.provider),

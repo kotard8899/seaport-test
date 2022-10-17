@@ -13,6 +13,9 @@ const Faucet = () => {
   const [arr721, setArr721] = useState(null)
   const account = accounts[0]
 
+  const address721 = chainId === 4002 ? "0xa297d6397c3aa061a747282012e76671a599905f" : "0x3A5C80D9D27475c045d9f54623c5655E24aFCE46"
+  const address1155 = chainId === 4002 ? "0x56bC3d76bE6Cb0Ba9064f6252F30644Cd1181C87" : "0x50dc07236EbcFd4BEf7B2599A110F9d155197A06"
+  const address20 = chainId === 4002 ? "0xBaFdc1e513F79715C36cb57b79b2D4Ae781CA824" : "0xF7a5f45682Fdc9De5F5Ee63083F79124B5b31001"
   const mint721 = async () => {
     const abi = [
       {
@@ -40,7 +43,7 @@ const Faucet = () => {
         type: "function",
       }
     ]
-    const contract = (new Contract("0xFb6C49E19049C98Cc637A0B800b5FD2C6696F0D9", abi, eProvider)).connect(signer)
+    const contract = (new Contract(address721, abi, eProvider)).connect(signer)
     const tx = contract
       .mint(amount721);
     await (await tx).wait();
@@ -66,7 +69,7 @@ const Faucet = () => {
         "type": "function"
       }
     ]
-    const contract = (new Contract("0x8e459a3a03dDF3AcbaFc0dF52cbd800bA1F1B69A", abi, eProvider)).connect(signer)
+    const contract = (new Contract(address1155, abi, eProvider)).connect(signer)
     const tx = contract
       .mintBatch([1,2,3,4,5], [100,100,100,100,100]);
     await (await tx).wait();
@@ -81,7 +84,7 @@ const Faucet = () => {
         type: "function",
       }
     ]
-    const contract = (new Contract("0x34387ed89DFF4f519C2072c7c2DB0ac2e02e0e77", abi, eProvider)).connect(signer)
+    const contract = (new Contract(address20, abi, eProvider)).connect(signer)
     const tx = contract
       .mint(parseEther("100000"));
     await (await tx).wait();
@@ -89,7 +92,7 @@ const Faucet = () => {
 
   return (
     <div className={styles.container}>
-      <main className={styles.main}>
+      <main className={styles.main}>{console.log(chainId)}
         <W3WalletDriver />
         <div>
           <div className="space-x-1">
@@ -98,7 +101,7 @@ const Faucet = () => {
             <button onClick={mint721} className="border-2 p-1">mint721</button>
           </div>
           <div className="space-x-1">
-            <div>address: 0xFb6C49E19049C98Cc637A0B800b5FD2C6696F0D9</div>
+            <div>address: {address721}</div>
             minted721tokenId:{" "}
             {arr721 && arr721.map(i => <span key={i}>{i}, </span>)}
           </div>
@@ -109,7 +112,7 @@ const Faucet = () => {
             <button onClick={mint1155} className="border-2 p-1">mint1155</button>
           </div>
           <div>
-            <div>address: 0x8e459a3a03dDF3AcbaFc0dF52cbd800bA1F1B69A</div>
+            <div>address: {address1155}</div>
             1155統一給tokenId 1, 2, 3, 4, 5，每個都給100個
           </div>
         </div>
@@ -119,7 +122,7 @@ const Faucet = () => {
             <button onClick={mint20} className="border-2 p-1">mint20</button>
           </div>
           <div>
-            <div>address: 0x34387ed89DFF4f519C2072c7c2DB0ac2e02e0e77</div>
+            <div>address: {address20}</div>
             ERC20 都給 100000
           </div>
         </div>

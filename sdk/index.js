@@ -11,9 +11,11 @@ import {
   getOrderHash,
   convertSignatureToEIP2098,
   parseEther,
-  toFulfillment,
   getBasicOrderParameters,
   signOrder,
+  getFulfillment,
+  getFulFillmentArrByOrder,
+  getOfferOrConsiderationItem
 } from "./pure";
 
 class SDK {
@@ -40,7 +42,6 @@ class SDK {
         : parseInt(chainId.toString(10), 10)
       : provider._network.chainId;
 
-    // console.log(defaultAddresses[this.chainId.toString(10)].seaport)
     this.marketplaceContract = Seaport__factory.connect(
       defaultAddresses[this.chainId.toString(10)].seaport ?? null,
       signer ?? provider
@@ -124,7 +125,7 @@ class SDK {
     startTime = Math.floor(Date.now() / 1000),
     endTime = startTime + 2678400, // default: 31 days
     // criteriaResolvers,
-    zone = undefined,
+    zone = constants.AddressZero,
     zoneHash = constants.HashZero,
     conduitKey = constants.HashZero,
     extraCheap = false
@@ -154,7 +155,6 @@ class SDK {
       ...orderParameters,
       counter,
     };
-
     const orderHash = await getOrderHash(marketplaceContract, orderComponents);
 
     const { isValidated, isCancelled, totalFilled, totalSize } =
@@ -247,7 +247,7 @@ class SDK {
         {
           value,
         }
-      )
+      );
     }
 
     const cnItemType = consideration[0].itemType;
@@ -366,21 +366,30 @@ class SDK {
    *
    * @param order             The order to be match.
    * @param orderToMatch      The order to match.
-   * @param fulfillments      An array of elements allocating offer components
-   *                          to consideration components. Note that each
-   *                          consideration component must be fully met in
-   *                          order for the match operation to be valid.
-   *
+   * @param gapAsset          The asset for price difference
    * @return An ethers contract transaction
    */
   matchOrders = async (
     order,
     orderToMatch,
-    fulfillments = this.getFulfillment()
+    gapAsset
   ) => {
+
+    // 處理fulfillment
+    
+    const fArr = getFulFillmentArrByOrder(order, orderToMatch)
+
+    // 這邊先假設只有英式拍賣會出現 gapAsset
+    if (gapAsset) {
+      fArr[1][1].push([0, 1]);
+      order.parameters.consideration.push(gapAsset);
+    }
+
+    const fulfillment = getFulfillment(fArr);
+
     return this.marketplaceContract.matchOrders(
       [order, orderToMatch],
-      fulfillments
+      fulfillment
     );
   };
 
@@ -428,7 +437,7 @@ class SDK {
     const {
       itemType,
       token,
-      startAmount,
+      startAmount = 1,
       endAmount = startAmount,
       tokenId,
       recipient,
@@ -598,18 +607,6 @@ class SDK {
     identifier,
     criteriaProof,
   });
-
-  getFulfillment = (
-    arr = [
-      [[[0, 0]], [[1, 0]]],
-      [[[1, 0]], [[0, 0]]],
-      [[[1, 0]], [[0, 1]]],
-      [[[1, 0]], [[0, 2]]],
-    ]
-  ) =>
-    arr.map(([offerArr, considerationArr]) =>
-      toFulfillment(offerArr, considerationArr)
-    );
 }
 
 export default SDK;

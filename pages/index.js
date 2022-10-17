@@ -1,33 +1,17 @@
 import styles from "../styles/Home.module.css";
 import { useState, useEffect, useCallback } from "react";
 import { W3WalletDriver, useW3Wallet } from "../components/w3wallet";
-import { constants, Contract, BigNumber } from "ethers";
-import { approveABI, seaportABI, erc20ABI } from "../constants"
-import { 
-  owner, seaport, zone, ERC721Token, ERC1155Token, LOOT,
-} from "../constants/contracts"
-import {
-  parseEther,
-  toKey,
-  getOfferOrConsiderationItem,
-  getItemETH,
-  getItem20,
-  getItem721,
-  getItem1155,
-  getBasicOrderParameters,
-  createOrder,
-} from "../utils"
 import SDK from "../sdk"
 
 const OfferItem = ({ offer, setOffer, approve, cn }) => {
-  const { type } = offer
+  const { itemType } = offer
   return (
     <div className="space-x-2">
       {cn ? (
         <select
           id="offertype"
           value={offer.type}
-          onChange={(e) => setOffer({ ...offer, type: e.target.value})}
+          onChange={(e) => setOffer({ ...offer, itemType: e.target.value})}
           className="border-2 p-1 w-24"
         >
           <option value="NATIVE">NATIVE</option>
@@ -38,30 +22,31 @@ const OfferItem = ({ offer, setOffer, approve, cn }) => {
       ) : (
         <select
           id="offertype"
-          value={type}
-          onChange={(e) => setOffer({ ...offer, type: e.target.value})}
+          value={itemType}
+          onChange={(e) => setOffer({ ...offer, itemType: e.target.value})}
           className="border-2 p-1 w-24"
         >
           <option value="721">721</option>
+          <option value="NATIVE">NATIVE</option>
           <option value="20">20</option>
           <option value="1155">1155</option>
         </select>
       )}
-      {type !== "NATIVE" && <input
+      {itemType !== 0 && <input
         type="text"
         placeholder="address"
         value={offer.token}
         onChange={(e) => setOffer({ ...offer, token: e.target.value})}
         className="border-2 p-1"
       />}
-      {type !== "721" && <input
+      {(itemType !== 2 && itemType !== 4) && <input
         type="number"
         placeholder="amount"
         value={offer.amount || ""}
         onChange={(e) => setOffer({ ...offer, amount: e.target.value})}
         className="border-2 p-1"
       />}
-      {(type === "721" || type === "1155") && <input
+      {itemType !== 0 && <input
         type="number"
         placeholder="tokenId"
         value={offer.tokenId || ""}
@@ -75,7 +60,7 @@ const OfferItem = ({ offer, setOffer, approve, cn }) => {
         onChange={(e) => setOffer({ ...offer, recipient: e.target.value})}
         className="border-2 p-1"
       />}
-      {!offer.isApproved && type!== "NATIVE" && <button
+      {!offer.isApproved && itemType!== 0 && <button
         className="border px-2 p-1"
         onClick={() => approve(offer, setOffer)}
       >
@@ -90,12 +75,6 @@ export default function Home() {
   const { eProvider, signer, accounts, chainId } = W3Wallet
   const sdk = eProvider && chainId && new SDK(eProvider, signer)
 
-  const marketplaceContract = new Contract(seaport, seaportABI, eProvider)
-  const tokenId = 50
-  const tokenId2 = 59
-  const ERC1155TokenId = 1
-  const ERC1155TokenId2 = 2
-  const ERC1155TokenId3 = 3
   const [order, setOrder] = useState(null)
   const [offer, setOffer] = useState(null)
   const [consideration, setConsideration] = useState(null)
@@ -103,179 +82,123 @@ export default function Home() {
   const [value, setValue] = useState(null)
   const [offer1, setOffer1] = useState({
     isApproved: false,
-    type: "721",
     token: "",
-    amount: undefined,
-    tokenId: undefined,
+    amount: null,
+    tokenId: null,
     itemType: 2
   })
   const [offer2, setOffer2] = useState({
     isApproved: false,
-    type: "721",
     token: "",
-    amount: undefined,
-    tokenId: undefined
+    amount: null,
+    tokenId: null,
+    itemType: 2
   })
   const [offer3, setOffer3] = useState({
     isApproved: false,
-    type: "721",
     token: "",
-    amount: undefined,
-    tokenId: undefined
+    amount: null,
+    tokenId: null,
+    itemType: 2
   })
   const [offer4, setOffer4] = useState({
     isApproved: false,
-    type: "721",
     token: "",
-    amount: undefined,
-    tokenId: undefined
+    amount: null,
+    tokenId: null,
+    itemType: 2
   })
   const [offer5, setOffer5] = useState({
     isApproved: false,
-    type: "721",
     token: "",
-    amount: undefined,
-    tokenId: undefined
+    amount: null,
+    tokenId: null,
+    itemType: 2
   })
   const [cn1, setCn1] = useState({
     isApproved: false,
-    type: "NATIVE",
+    itemType: 0,
     token: "",
-    amount: undefined,
-    tokenId: undefined,
-    receipt: undefined,
+    amount: null,
+    tokenId: null,
+    receipt: null,
 
   })
   const [cn2, setCn2] = useState({
     isApproved: false,
-    type: "NATIVE",
+    itemType: 0,
     token: "",
-    amount: undefined,
-    tokenId: undefined,
-    receipt: undefined
+    amount: null,
+    tokenId: null,
+    receipt: null
   })
   const [cn3, setCn3] = useState({
     isApproved: false,
-    type: "NATIVE",
+    itemType: 0,
     token: "",
-    amount: undefined,
-    tokenId: undefined,
-    receipt: undefined
+    amount: null,
+    tokenId: null,
+    receipt: null
   })
   const [cn4, setCn4] = useState({
     isApproved: false,
-    type: "NATIVE",
+    itemType: 0,
     token: "",
-    amount: undefined,
-    tokenId: undefined,
-    receipt: undefined
+    amount: null,
+    tokenId: null,
+    receipt: null
   })
   const [cn5, setCn5] = useState({
     isApproved: false,
-    type: "NATIVE",
+    itemType: 0,
     token: "",
-    amount: undefined,
-    tokenId: undefined,
-    receipt: undefined
+    amount: null,
+    tokenId: null,
+    receipt: null
   })
 
   const account = accounts[0];
 
   const checkIsApproved = useCallback(async (offer, setState) => {
-    // let contract
-    // let isApproved
-    // if (type === "20") {
-    //   contract = new Contract(address, erc20ABI, eProvider)
-    //   const allowance = await contract.connect(signer).allowance(account, seaport)
-    //   if (allowance / Math.pow(10, 18) >= 10000000) {
-    //     isApproved = true
-    //   }
-    // } else {
-    //   contract = new Contract(address, approveABI, eProvider)
-    //   isApproved = await contract.connect(signer).isApprovedForAll(account, seaport)
-    // }
-    // isApproved && set(prev => ({ ...prev, isApproved }))
+    if ((offer.itemType === 2 || offer.itemType === 4) && !offer.tokenId) return
     const isApproved = await sdk.loadApprovalStatus(offer, account)
     isApproved && setState(prev => ({ ...prev, isApproved }))
   }, [account, sdk])
 
   useEffect(() => {
-    offer1.token && offer1.tokenId && checkIsApproved(offer1, setOffer1)
-    offer2.token && checkIsApproved(offer2.token, offer2.type, setOffer2)
-    offer3.token && checkIsApproved(offer3.token, offer3.type, setOffer3)
-    offer4.token && checkIsApproved(offer4.token, offer4.type, setOffer4)
-    offer5.token && checkIsApproved(offer5.token, offer5.type, setOffer5)
-  }, [checkIsApproved, offer1.token, offer1.tokenId, offer2.address, offer2.type, offer3.address, offer3.type, offer4.address, offer4.type, offer5.address, offer5.type, offer1.isApproved, offer2.isApproved, offer3.isApproved, offer4.isApproved, offer5.isApproved])
+    offer1.token && checkIsApproved(offer1, setOffer1)
+    offer2.token && checkIsApproved(offer2, setOffer2)
+    offer3.token && checkIsApproved(offer3, setOffer3)
+    offer4.token && checkIsApproved(offer4, setOffer4)
+    offer5.token && checkIsApproved(offer5, setOffer5)
+  }, [checkIsApproved, offer1.token, offer1.tokenId, offer2.token, offer2.tokenId, offer3.token, offer3.tokenId, offer4.token, offer4.tokenId, offer5.token, offer5.tokenId])
 
   useEffect(() => {
-    cn1.address && checkIsApproved(cn1.address, cn1.type, setCn1)
-    cn2.address && checkIsApproved(cn2.address, cn2.type, setCn2)
-    cn3.address && checkIsApproved(cn3.address, cn3.type, setCn3)
-    cn4.address && checkIsApproved(cn4.address, cn4.type, setCn4)
-    cn5.address && checkIsApproved(cn5.address, cn5.type, setCn5)
-  }, [checkIsApproved, cn1.address, cn1.type, cn2.address, cn2.type, cn3.address, cn3.type, cn4.address, cn4.type, cn5.address, cn5.type, cn1.isApproved, cn2.isApproved, cn3.isApproved, cn4.isApproved, cn5.isApproved])
-
-  // const offer = [
-  //   // ERC721
-  //   // getItem721(ERC721Token, tokenId),
-  //   // getItem721(ERC721Token, tokenId2),
-
-  //   // ERC1155
-  //   getItem1155(ERC1155Token, ERC1155TokenId),
-  //   // getItem1155(ERC1155Token, ERC1155TokenId2),
-
-  //   // getItem20(LOOT, "50", "50"),
-  // ]
-
-  // const consideration = [
-  //   // * <=> ERC721
-  //   // getItem721(ERC721Token, 57, 1, 1, account),
-  //   // getItem721(ERC721Token, 58, 1, 1, account),
-  //   // getItem1155(ERC1155Token, ERC1155TokenId3, 1, 1, account),
-
-  //   // * <=> NATIVE
-  //   // getItemETH("0.1", "0.1", account),
-  //   // getItemETH("0.01", "0.01", owner),
-
-  //   // * <=> ERC20
-  //   getItem20(LOOT, "5", "5", account),
-  //   getItem20(LOOT, "5", "5", owner),
-
-  //   // * <=> ERC1155
-  //   // getItem1155(ERC1155Token, ERC1155TokenId3, 1, 1, account),
-  //   // getItem1155(ERC1155Token, ERC1155TokenId2, 1, 1, account),
-  // ]
-
-  const getItem = ({ type, token, amount, tokenId, recipient }) => {
-    if (type === "NATIVE") {
-      return getItemETH(amount, amount, recipient)
-    } else if (type === "20") {
-      return getItem20(token, amount, amount, recipient)
-    } else if (type === "721") {
-      return getItem721(token, tokenId, 1, 1, recipient)
-    } else {
-      return getItem1155(token, tokenId, amount, amount, recipient)
-    }
-  }
+    cn1.token && checkIsApproved(cn1, setCn1)
+    cn2.token && checkIsApproved(cn2, setCn2)
+    cn3.token && checkIsApproved(cn3, setCn3)
+    cn4.token && checkIsApproved(cn4, setCn4)
+    cn5.token && checkIsApproved(cn5, setCn5)
+  }, [checkIsApproved, cn1.token, cn1.type, cn2.token, cn2.type, cn3.token, cn3.type, cn4.token, cn4.type, cn5.token, cn5.type, cn1.isApproved, cn2.isApproved, cn3.isApproved, cn4.isApproved, cn5.isApproved])
 
   const create = async () => {
     const offer = []
     const consideration = []
-    offer1.token && offer.push(getItem(offer1))
-    offer2.address && offer.push(getItem(offer2))
-    offer3.address && offer.push(getItem(offer3))
-    offer4.address && offer.push(getItem(offer4))
-    offer5.address && offer.push(getItem(offer5))
-    cn1.amount && consideration.push(getItem(cn1))
-    cn2.amount && consideration.push(getItem(cn2))
-    cn3.amount && consideration.push(getItem(cn3))
-    cn4.amount && consideration.push(getItem(cn4))
-    cn5.amount && consideration.push(getItem(cn5))
+    offer1.token && offer.push(sdk.getItem(offer1))
+    offer2.token && offer.push(sdk.getItem(offer2))
+    offer3.token && offer.push(sdk.getItem(offer3))
+    offer4.token && offer.push(sdk.getItem(offer4))
+    offer5.token && offer.push(sdk.getItem(offer5))
+    cn1.amount && consideration.push(sdk.getItem(cn1))
+    cn2.amount && consideration.push(sdk.getItem(cn2))
+    cn3.amount && consideration.push(sdk.getItem(cn3))
+    cn4.amount && consideration.push(sdk.getItem(cn4))
+    cn5.amount && consideration.push(sdk.getItem(cn5))
     const { order, value, orderComponents, orderHash } = await sdk.createOrder(
       offer,
       consideration,
       0, // FULL_OPEN
-      zone,
+      // zone,
       // [],
       // constants.HashZero,
       // constants.HashZero
@@ -289,85 +212,8 @@ export default function Home() {
   }
 
   const handleFullfill = async () => {
-    // let func = fullfill
-    // const cnItemType = consideration[0].itemType
-    // let isBasic
-    // console.log(offer[0].itemType)
-
-    // // fulfillBasicOrder條件
-    // // offer只能有一個 (20 || 721 || 1155)
-    // // offer為20時，cn的第一項一定要是721 || 1155，且其他項也只能為20
-    // // offer為721 || 1155時，cn每項的type都要相等，且只能為NATIVE || 20
-    // // 其餘皆為 fullfillOrder
-    // if (offer.length === 1) {
-    //   if (offer[0].itemType === 1) {
-    //     if (cnItemType === 2 || cnItemType === 3) {
-    //       isBasic = true
-    //       for (const { itemType } of consideration.slice(1)) {
-    //         if (itemType === 0 || itemType === 2 || itemType === 3) {
-    //           isBasic = false
-    //           break
-    //         }
-    //       }
-    //     }
-    //   } else {
-    //     if (cnItemType === 0 || cnItemType === 1) {
-    //       isBasic = true
-    //       for (const { itemType } of consideration.slice(1)) {
-    //         if (itemType !== cnItemType) {
-    //           isBasic = false
-    //           break
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
-    // console.log(isBasic)
-    // if (isBasic) func = fullfillBasic
-    // func()
-    const tx = await sdk.fulfill(order, value)
-    const receipt = await tx.wait();
-  }
-
-  const fullfill = async () => {
-    const tx = marketplaceContract
-      .connect(signer)
-      .fulfillOrder(order, toKey(0), {
-        value,
-      });
-    const receipt = await (await tx).wait();
-    console.log(receipt)
-  }
-
-  const fullfillBasic = async () => {
-    const offerItemType = offer[0].itemType
-    const cnItemType = consideration[0].itemType
-    let basicOrderRouteType
-    if (offerItemType === 1) {
-      basicOrderRouteType = cnItemType === 2 ? 4 : 5
-    } else if (offerItemType === 2) {
-      basicOrderRouteType = cnItemType === 0 ? 0 : 2
-    } else {
-      basicOrderRouteType = cnItemType === 0 ? 1 : 3
-    }
-    const basicOrderParameters = getBasicOrderParameters(
-      basicOrderRouteType,
-      // 0, // EthForERC721
-      // 1, // EthForERC1155
-      // 2, // ERC20ForERC721
-      // 3, // ERC20ForERC1155
-      // 4, // ERC721forERC20
-      // 5, // ERC1155forERC20
-      order
-    );
-    
-    const tx = marketplaceContract
-      .connect(signer)
-      .fulfillBasicOrder(basicOrderParameters, {
-        value,
-      });
-    const receipt = await (await tx).wait();
-    console.log(receipt)
+    const tx = await sdk.fulfillOrder(order, value)
+    await tx.wait();
   }
 
   const validate = async () => {
@@ -377,9 +223,6 @@ export default function Home() {
   }
 
   const cancel = async () => {
-    // const tx = marketplaceContract
-    //   .connect(signer)
-    //   .cancel([orderComponents]);
     const tx = sdk.cancelOrder([orderComponents])
     const receipt = await (await tx).wait();
     console.log(receipt)
@@ -387,41 +230,14 @@ export default function Home() {
   }
   
   const approve = async (offer, setOffer) => {
-    // const { type, address } = offer
-    // let contract
-    // let tx
-    // if (type === "20") {
-    //   contract = new Contract(address, erc20ABI, eProvider)
-    //   tx = contract.connect(signer).approve(seaport, parseEther("10000000000"))
-    // } else {
-    //   contract = new Contract(address, approveABI, eProvider)
-    //   tx = contract.connect(signer).setApprovalForAll(seaport, true)
-    // }
     const tx = await sdk.approveAsset(offer)
-    const r = await tx.wait();
-    console.log({tx,r})
+    await tx.wait();
     setOffer({ ...offer, isApproved: true })
   }
 
-  const toHex = (n, numBytes = 0) => {
-    const asHexString = BigNumber.isBigNumber(n)
-      ? n.toHexString().slice(2)
-      : typeof n === "string"
-      ? hexRegex.test(n)
-        ? n.replace(/0x/, "")
-        : Number(n).toString(16)
-      : Number(n).toString(16);
-    return `0x${asHexString.padStart(numBytes * 2, "0")}`;
-  };
-  const hexRegex = /[A-Fa-fx]/g;
   return (
     <div className={styles.container}>
       <main className={styles.main}>
-        {console.log(sdk && sdk.getFulfillment(    [
-      [[[0, 0]], [[1, 0]]], //4num分別是 offer，offer裡的位子，cn，cn裡的位子
-      [[[1, 0]], [[0, 0], [0, 1]]],
-      [[[1, 0]], [[1, 1]]],
-    ]))}
         <W3WalletDriver />
         <div className="mb-5">
           <p>
