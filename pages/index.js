@@ -11,25 +11,25 @@ const OfferItem = ({ offer, setOffer, approve, cn }) => {
         <select
           id="offertype"
           value={offer.type}
-          onChange={(e) => setOffer({ ...offer, itemType: e.target.value})}
+          onChange={(e) => setOffer({ ...offer, itemType: Number(e.target.value)})}
           className="border-2 p-1 w-24"
         >
-          <option value="NATIVE">NATIVE</option>
-          <option value="721">721</option>
-          <option value="20">20</option>
-          <option value="1155">1155</option>
+          <option value="0">NATIVE</option>
+          <option value="2">721</option>
+          <option value="1">20</option>
+          <option value="3">1155</option>
         </select>
       ) : (
         <select
           id="offertype"
           value={itemType}
-          onChange={(e) => setOffer({ ...offer, itemType: e.target.value})}
+          onChange={(e) => setOffer({ ...offer, itemType: Number(e.target.value)})}
           className="border-2 p-1 w-24"
         >
-          <option value="721">721</option>
-          <option value="NATIVE">NATIVE</option>
-          <option value="20">20</option>
-          <option value="1155">1155</option>
+          <option value="2">721</option>
+          <option value="0">NATIVE</option>
+          <option value="1">20</option>
+          <option value="3">1155</option>
         </select>
       )}
       {itemType !== 0 && <input
@@ -42,11 +42,11 @@ const OfferItem = ({ offer, setOffer, approve, cn }) => {
       {(itemType !== 2 && itemType !== 4) && <input
         type="number"
         placeholder="amount"
-        value={offer.amount || ""}
-        onChange={(e) => setOffer({ ...offer, amount: e.target.value})}
+        value={offer.startAmount || ""}
+        onChange={(e) => setOffer({ ...offer, startAmount: e.target.value})}
         className="border-2 p-1"
       />}
-      {itemType !== 0 && <input
+      {itemType !== 0 && itemType !== 1 && <input
         type="number"
         placeholder="tokenId"
         value={offer.tokenId || ""}
@@ -83,35 +83,35 @@ export default function Home() {
   const [offer1, setOffer1] = useState({
     isApproved: false,
     token: "",
-    amount: null,
+    startAmount: null,
     tokenId: null,
     itemType: 2
   })
   const [offer2, setOffer2] = useState({
     isApproved: false,
     token: "",
-    amount: null,
+    startAmount: null,
     tokenId: null,
     itemType: 2
   })
   const [offer3, setOffer3] = useState({
     isApproved: false,
     token: "",
-    amount: null,
+    startAmount: null,
     tokenId: null,
     itemType: 2
   })
   const [offer4, setOffer4] = useState({
     isApproved: false,
     token: "",
-    amount: null,
+    startAmount: null,
     tokenId: null,
     itemType: 2
   })
   const [offer5, setOffer5] = useState({
     isApproved: false,
     token: "",
-    amount: null,
+    startAmount: null,
     tokenId: null,
     itemType: 2
   })
@@ -119,7 +119,7 @@ export default function Home() {
     isApproved: false,
     itemType: 0,
     token: "",
-    amount: null,
+    startAmount: null,
     tokenId: null,
     receipt: null,
 
@@ -128,7 +128,7 @@ export default function Home() {
     isApproved: false,
     itemType: 0,
     token: "",
-    amount: null,
+    startAmount: null,
     tokenId: null,
     receipt: null
   })
@@ -136,7 +136,7 @@ export default function Home() {
     isApproved: false,
     itemType: 0,
     token: "",
-    amount: null,
+    startAmount: null,
     tokenId: null,
     receipt: null
   })
@@ -144,7 +144,7 @@ export default function Home() {
     isApproved: false,
     itemType: 0,
     token: "",
-    amount: null,
+    startAmount: null,
     tokenId: null,
     receipt: null
   })
@@ -152,7 +152,7 @@ export default function Home() {
     isApproved: false,
     itemType: 0,
     token: "",
-    amount: null,
+    startAmount: null,
     tokenId: null,
     receipt: null
   })
@@ -189,11 +189,11 @@ export default function Home() {
     offer3.token && offer.push(sdk.getItem(offer3))
     offer4.token && offer.push(sdk.getItem(offer4))
     offer5.token && offer.push(sdk.getItem(offer5))
-    cn1.amount && consideration.push(sdk.getItem(cn1))
-    cn2.amount && consideration.push(sdk.getItem(cn2))
-    cn3.amount && consideration.push(sdk.getItem(cn3))
-    cn4.amount && consideration.push(sdk.getItem(cn4))
-    cn5.amount && consideration.push(sdk.getItem(cn5))
+    cn1.startAmount && consideration.push(sdk.getItem(cn1))
+    cn2.startAmount && consideration.push(sdk.getItem(cn2))
+    cn3.startAmount && consideration.push(sdk.getItem(cn3))
+    cn4.startAmount && consideration.push(sdk.getItem(cn4))
+    cn5.startAmount && consideration.push(sdk.getItem(cn5))
     const { order, value, orderComponents, orderHash } = await sdk.createOrder(
       offer,
       consideration,
