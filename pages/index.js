@@ -179,7 +179,7 @@ export default function Home() {
     cn3.token && checkIsApproved(cn3, setCn3)
     cn4.token && checkIsApproved(cn4, setCn4)
     cn5.token && checkIsApproved(cn5, setCn5)
-  }, [checkIsApproved, cn1.token, cn1.type, cn2.token, cn2.type, cn3.token, cn3.type, cn4.token, cn4.type, cn5.token, cn5.type, cn1.isApproved, cn2.isApproved, cn3.isApproved, cn4.isApproved, cn5.isApproved])
+  }, [checkIsApproved, cn1.token, cn1.tokenId, cn2.token, cn2.tokenId, cn3.token, cn3.tokenId, cn4.token, cn4.tokenId, cn5.token, cn5.tokenId, cn1.isApproved, cn2.isApproved, cn3.isApproved, cn4.isApproved, cn5.isApproved])
 
   const create = async () => {
     const offer = []
@@ -197,12 +197,7 @@ export default function Home() {
     const { order, value, orderComponents, orderHash } = await sdk.createOrder(
       offer,
       consideration,
-      0, // FULL_OPEN
-      // zone,
-      // [],
-      // constants.HashZero,
-      // constants.HashZero
-      // true // extraCheap
+      0,
     )
     setOrder(order)
     setOffer(offer)
