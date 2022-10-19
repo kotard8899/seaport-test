@@ -212,13 +212,13 @@ export default function Home() {
   }
 
   const validate = async () => {
-    const tx = sdk.validate(orderComponents)
+    const tx = sdk.validateOrders(orderComponents)
     const receipt = await (await tx).wait();
     console.log(receipt)
   }
 
   const cancel = async () => {
-    const tx = sdk.cancelOrder([orderComponents])
+    const tx = sdk.cancelOrders([orderComponents])
     const receipt = await (await tx).wait();
     console.log(receipt)
 

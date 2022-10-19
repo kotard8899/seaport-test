@@ -1,391 +1,607 @@
-import { randomBytes as nodeRandomBytes } from "crypto";
-import { BigNumber, constants, utils } from "ethers";
 import defaultAddresses from "./addresses.json";
-import { ERC20__factory, ERC721__factory, ERC1155__factory } from "./factories";
+import { constants } from "ethers";
+import { Seaport__factory } from "./factories";
+import {
+  approveAsset,
+  getApprovalStatus,
+  getWrappedNativeToken,
+  randomHex,
+  toBN,
+  toKey,
+  getOrderHash,
+  convertSignatureToEIP2098,
+  parseEther,
+  getBasicOrderParameters,
+  signOrder,
+  getFulfillment,
+  getFulFillmentArrByOrder,
+  getOfferOrConsiderationItem,
+} from "./utils/pure";
 
-const randomBytes = (n) => nodeRandomBytes(n).toString("hex");
+class SDK {
+  // RPC provider from ethers
+  provider;
+  // Wallet signer
+  signer;
+  // Chain Id for this instance.
+  chainId;
+  marketplaceContract;
 
-const hexRegex = /[A-Fa-fx]/g;
+  /**
+   * @param provider Provider from ethers
+   * @param {object} [signer] signer from ethers
+   * @param {string|number} [chainId] chainId || networkId
+   * @returns
+   */
+  constructor(provider, signer, chainId) {
+    this.provider = provider;
+    this.signer = signer ?? provider.getSigner();
+    this.chainId = chainId
+      ? typeof chainId === "string" && chainId.includes("0x")
+        ? parseInt(chainId, 16)
+        : parseInt(chainId.toString(10), 10)
+      : provider._network.chainId;
 
-const toHex = (n, numBytes = 0) => {
-  const asHexString = BigNumber.isBigNumber(n)
-    ? n.toHexString().slice(2)
-    : typeof n === "string"
-    ? hexRegex.test(n)
-      ? n.replace(/0x/, "")
-      : Number(n).toString(16)
-    : Number(n).toString(16);
-  return `0x${asHexString.padStart(numBytes * 2, "0")}`;
-};
-
-// Some arbitrarily high number.
-const MAX_APPROVAL = BigNumber.from(2).pow(118);
-
-const orderType = {
-  OrderComponents: [
-    { name: "offerer", type: "address" },
-    { name: "zone", type: "address" },
-    { name: "offer", type: "OfferItem[]" },
-    { name: "consideration", type: "ConsiderationItem[]" },
-    { name: "orderType", type: "uint8" },
-    { name: "startTime", type: "uint256" },
-    { name: "endTime", type: "uint256" },
-    { name: "zoneHash", type: "bytes32" },
-    { name: "salt", type: "uint256" },
-    { name: "conduitKey", type: "bytes32" },
-    { name: "counter", type: "uint256" },
-  ],
-  OfferItem: [
-    { name: "itemType", type: "uint8" },
-    { name: "token", type: "address" },
-    { name: "identifierOrCriteria", type: "uint256" },
-    { name: "startAmount", type: "uint256" },
-    { name: "endAmount", type: "uint256" },
-  ],
-  ConsiderationItem: [
-    { name: "itemType", type: "uint8" },
-    { name: "token", type: "address" },
-    { name: "identifierOrCriteria", type: "uint256" },
-    { name: "startAmount", type: "uint256" },
-    { name: "endAmount", type: "uint256" },
-    { name: "recipient", type: "address" },
-  ],
-};
-
-export const getApprovalStatus = async (
-  walletAddress,
-  exchangeAddress,
-  asset,
-  provider
-) => {
-  switch (asset.itemType) {
-    case 0: // NATIVE
-      return true;
-    case 1: // ERC20
-      const erc20 = ERC20__factory.connect(asset.token, provider);
-      const erc20AllowanceBigNumber = await erc20.allowance(
-        walletAddress,
-        exchangeAddress
-      );
-      // Weird issue with BigNumber and approvals...need to look into it, adding buffer.
-      const MAX_APPROVAL_WITH_BUFFER = BigNumber.from(
-        MAX_APPROVAL.toString()
-      ).sub("100000000000000000");
-      const approvedForMax = erc20AllowanceBigNumber.gte(
-        MAX_APPROVAL_WITH_BUFFER
-      );
-      return approvedForMax;
-    case 2 || 4: // ERC721 || ERC721_WITH_CRITERIA
-      const erc721 = ERC721__factory.connect(asset.token, provider);
-      const erc721ApprovalForAllPromise = erc721.isApprovedForAll(
-        walletAddress,
-        exchangeAddress
-      );
-      const erc721ApprovedAddressForIdPromise = erc721.getApproved(
-        asset.tokenId
-      );
-      const [erc721ApprovalForAll, erc721ApprovedAddressForId] =
-        await Promise.all([
-          erc721ApprovalForAllPromise,
-          erc721ApprovedAddressForIdPromise,
-        ]);
-      const tokenIdApproved =
-        erc721ApprovedAddressForId.toLowerCase() ===
-        exchangeAddress.toLowerCase();
-      return erc721ApprovalForAll || tokenIdApproved;
-    case 3 || 5: // ERC1155 || ERC1155_WITH_CRITERIA
-      const erc1155 = ERC1155__factory.connect(asset.token, provider);
-      const erc1155ApprovalForAll = await erc1155.isApprovedForAll(
-        walletAddress,
-        exchangeAddress
-      );
-      return erc1155ApprovalForAll ?? false;
-    default:
-      throw new Error(`Unexpected itemType: ${asset.itemType}`);
-  }
-};
-
-export const approveAsset = async (
-  exchangeProxyAddressForAsset,
-  asset,
-  signer,
-  txOverrides = {},
-  approvalOrderrides
-) => {
-  const approve = approvalOrderrides?.approve ?? true;
-
-  switch (asset.itemType) {
-    case 1: // ERC20
-      const erc20 = ERC20__factory.connect(asset.token, signer);
-      const erc20ApprovalTxPromise = erc20.approve(
-        exchangeProxyAddressForAsset,
-        approve ? MAX_APPROVAL.toString() : 0,
-        {
-          ...txOverrides,
-        }
-      );
-      return erc20ApprovalTxPromise;
-    case 2 || 4: // ERC721 || ERC721_WITH_CRITERIA
-      const erc721 = ERC721__factory.connect(asset.token, signer);
-      // If consumer prefers only to approve the tokenId, only approve tokenId
-      if (approvalOrderrides?.approvalOnlyTokenIdIfErc721) {
-        const erc721ApprovalForOnlyTokenId = erc721.approve(
-          exchangeProxyAddressForAsset,
-          asset.tokenId,
-          {
-            ...txOverrides,
-          }
-        );
-        return erc721ApprovalForOnlyTokenId;
-      }
-      // Otherwise default to approving entire contract
-      const erc721ApprovalForAllPromise = erc721.setApprovalForAll(
-        exchangeProxyAddressForAsset,
-        approve,
-        {
-          ...txOverrides,
-        }
-      );
-      return erc721ApprovalForAllPromise;
-    case 3 || 5: // ERC1155 || ERC1155_WITH_CRITERIA
-      const erc1155 = ERC1155__factory.connect(asset.token, signer);
-      // ERC1155s can only approval all
-      const erc1155ApprovalForAll = await erc1155.setApprovalForAll(
-        exchangeProxyAddressForAsset,
-        approve,
-        {
-          ...txOverrides,
-        }
-      );
-      return erc1155ApprovalForAll;
-    default:
-      throw new Error(`Unexpected itemType: ${asset.itemType}`);
-  }
-};
-
-export const getWrappedNativeToken = (chainId) => {
-  chainId =
-    typeof chainId === "string" && chainId.includes("0x")
-      ? parseInt(chainId, 16)
-      : chainId;
-  const chainIdString = chainId.toString(10);
-  return defaultAddresses[chainIdString].wrappedNativeToken ?? null;
-};
-
-export const { parseEther } = utils;
-
-export const randomHex = (bytes = 32) => `0x${randomBytes(bytes)}`;
-
-export const toBN = (n) => BigNumber.from(toHex(n));
-
-export const toKey = (n) => toHex(n, 32);
-
-export const convertSignatureToEIP2098 = (signature) => {
-  if (signature.length === 130) {
-    return signature;
+    this.marketplaceContract = Seaport__factory.connect(
+      defaultAddresses[this.chainId.toString(10)].seaport ?? null,
+      signer ?? provider
+    );
   }
 
-  if (signature.length !== 132) {
-    throw new Error("invalid signature length (must be 64 or 65 bytes)");
-  }
-
-  return utils.splitSignature(signature).compact;
-};
-
-export const getOrderHash = async (marketplaceContract, orderComponents) => {
-  const orderHash = await marketplaceContract.getOrderHash(orderComponents);
-  return orderHash;
-};
-
-// Returns signature
-export const signOrder = async (
-  marketplaceContract,
-  chainId,
-  orderComponents,
-  signer
-) => {
-  // Required for EIP712 signing
-  const domainData = {
-    name: "Seaport",
-    version: "1.1",
-    chainId,
-    verifyingContract: marketplaceContract.address,
+  /**
+   * Checks if an asset is approved for trading with Seaport
+   * If an asset is not approved, call approveTokenOrNftByAsset to approve.
+   * @param {Object} asset A tradeable asset (ERC20, ERC721, or ERC1155)
+   * @param {number} asset.itemType REQUIRED: Type of asset
+   * @param {string} [asset.token] Token Address of asset
+   * @param {string|number} [asset.tokenId] Only needed when checking ERC721
+   * @param walletAddress The wallet address that owns the asset
+   * @returns
+   */
+  loadApprovalStatus = async (asset, walletAddress) => {
+    return getApprovalStatus(
+      walletAddress,
+      this.marketplaceContract.address,
+      asset,
+      this.provider
+    );
   };
 
-  const signature = await signer._signTypedData(
-    domainData,
-    orderType,
-    orderComponents
-  );
-
-  // const orderHash = await getOrderHash(marketplaceContract, orderComponents);
-
-  // const { domainSeparator } = await marketplaceContract.information();
-  // const digest = keccak256(
-  //   `0x1901${domainSeparator.slice(2)}${orderHash.slice(2)}`
-  // );
-  // const recoveredAddress = recoverAddress(digest, signature);
-
-  // expect(recoveredAddress).to.equal(signer.address);
-
-  return signature;
-};
-
-export const getOfferOrConsiderationItem = (
-  itemType = 0,
-  token = constants.AddressZero,
-  identifierOrCriteria = 0,
-  startAmount = 1,
-  endAmount = 1,
-  recipient
-) => {
-  const offerItem = {
-    itemType,
-    token,
-    identifierOrCriteria: toBN(identifierOrCriteria),
-    startAmount: toBN(startAmount),
-    endAmount: toBN(endAmount),
+  /**
+   * Function to approve an asset (ERC20, ERC721, or ERC1155) for trading
+   * @param asset
+   * @param approvalTransactionOverrides
+   * @param otherOverrides
+   * @returns An ethers contract transaction
+   */
+  approveAsset = async (
+    asset,
+    approvalTransactionOverrides,
+    otherOverrides
+  ) => {
+    const signerToUse = otherOverrides?.signer ?? this.signer;
+    if (!signerToUse) {
+      throw new Error("Signer not defined");
+    }
+    return approveAsset(
+      this.marketplaceContract.address, // todo: opensea現在似乎都是用forwarder
+      asset,
+      signerToUse,
+      {
+        ...approvalTransactionOverrides,
+      },
+      otherOverrides
+    );
   };
-  if (typeof recipient === "string") {
-    return {
-      ...offerItem,
-      recipient,
+
+  /**
+   * Create an Order
+   * @param offer Transaction hash to await
+   * @param consideration Transaction hash to await
+   * @param orderType 0 ~ 3
+   *  // 0: no partial fills, anyone can execute
+   *  FULL_OPEN,
+   *  // 1: partial fills supported, anyone can execute
+   *  PARTIAL_OPEN,
+   *  // 2: no partial fills, only offerer or zone can execute
+   *  FULL_RESTRICTED,
+   *  // 3: partial fills supported, only offerer or zone can execute
+   *  PARTIAL_RESTRICTED
+   *
+   * @param startTime Timestamp in "seconds"
+   * @param endTime Timestamp in "seconds", default expired in 31days (1 month)
+   * @param zone Address that can execute RESTRICTED order
+   * @param zoneHash The hash to provide upon calling the zone.
+   * @param conduitKey   The conduit key used to deploy the conduit. Note that
+   *                     the first twenty bytes of the conduit key must match
+   *                     the caller of this contract.
+   * @param extraCheap
+   * @returns
+   */
+  createOrder = async (
+    offer,
+    consideration,
+    orderType = 0,
+    startTime = Math.floor(Date.now() / 1000),
+    endTime = startTime + 2678400, // default: 31 days
+    // criteriaResolvers,
+    zone = constants.AddressZero,
+    zoneHash = constants.HashZero,
+    conduitKey = constants.HashZero,
+    extraCheap = false
+  ) => {
+    const offerer = this.signer;
+    const marketplaceContract = this.marketplaceContract;
+    const offerAddress = await offerer.getAddress();
+    const counter = await marketplaceContract.getCounter(offerAddress);
+
+    const salt = !extraCheap ? randomHex() : constants.HashZero;
+
+    const orderParameters = {
+      offerer: offerAddress,
+      zone: !extraCheap ? zone : constants.AddressZero,
+      offer,
+      consideration,
+      totalOriginalConsiderationItems: consideration.length,
+      orderType,
+      zoneHash,
+      salt,
+      conduitKey,
+      startTime,
+      endTime,
     };
-  }
-  return offerItem;
-};
 
-const toFulfillmentComponents = (arr) =>
-  arr.map(([orderIndex, itemIndex]) => ({ orderIndex, itemIndex }));
+    const orderComponents = {
+      ...orderParameters,
+      counter,
+    };
+    const orderHash = await getOrderHash(marketplaceContract, orderComponents);
 
-const toFulfillment = (offerArr, considerationsArr) => ({
-  offerComponents: toFulfillmentComponents(offerArr),
-  considerationComponents: toFulfillmentComponents(considerationsArr),
-});
+    const { isValidated, isCancelled, totalFilled, totalSize } =
+      await marketplaceContract.getOrderStatus(orderHash);
 
-export const getFulfillment = (
-  arr = [
-    [[[0, 0]], [[1, 0]]],
-    [[[1, 0]], [[0, 0]]],
-    [[[1, 0]], [[0, 1]]],
-    [[[1, 0]], [[0, 2]]],
-  ]
-) =>
-  arr.map(([offerArr, considerationArr]) =>
-    toFulfillment(offerArr, considerationArr)
-  );
+    // expect(isCancelled).to.equal(false);
 
-export const getBasicOrderParameters = (
-  basicOrderRouteType,
-  order,
-  fulfillerConduitKey = false,
-  tips = []
-) => ({
-  offerer: order.parameters.offerer,
-  zone: order.parameters.zone,
-  basicOrderType: order.parameters.orderType + 4 * basicOrderRouteType,
-  offerToken: order.parameters.offer[0].token,
-  offerIdentifier: order.parameters.offer[0].identifierOrCriteria,
-  offerAmount: order.parameters.offer[0].endAmount,
-  considerationToken: order.parameters.consideration[0].token,
-  considerationIdentifier:
-    order.parameters.consideration[0].identifierOrCriteria,
-  considerationAmount: order.parameters.consideration[0].endAmount,
-  startTime: order.parameters.startTime,
-  endTime: order.parameters.endTime,
-  zoneHash: order.parameters.zoneHash,
-  salt: order.parameters.salt,
-  totalOriginalAdditionalRecipients: BigNumber.from(
-    order.parameters.consideration.length - 1
-  ),
-  signature: order.signature,
-  offererConduitKey: order.parameters.conduitKey,
-  fulfillerConduitKey: toKey(
-    typeof fulfillerConduitKey === "string" ? fulfillerConduitKey : 0
-  ),
-  additionalRecipients: [
-    ...order.parameters.consideration
-      .slice(1)
-      .map(({ endAmount, recipient }) => ({ amount: endAmount, recipient })),
-    ...tips,
-  ],
-});
+    const orderStatus = {
+      isValidated,
+      isCancelled,
+      totalFilled,
+      totalSize,
+    };
 
-export const getFulFillmentArrByOrder = (order, orderToMatch) => {
-  const { offer, consideration: cn } = order.parameters;
-  const { offer: offerToMatch, consideration: cnToMatch } =
-    orderToMatch.parameters;
-  const fArr = [];
+    const flatSig = await signOrder(
+      marketplaceContract,
+      this.chainId,
+      orderComponents,
+      offerer
+    );
 
-  for (let oI = 0; oI < offer.length; ++oI) {
+    const order = {
+      parameters: orderParameters,
+      signature: !extraCheap ? flatSig : convertSignatureToEIP2098(flatSig),
+      numerator: 1, // only used for advanced orders
+      denominator: 1, // only used for advanced orders
+      extraData: "0x", // only used for advanced orders
+    };
+
+    // How much ether (at most) needs to be supplied when fulfilling the order
+    const value = offer
+      .map((x) =>
+        x.itemType === 0
+          ? x.endAmount.gt(x.startAmount)
+            ? x.endAmount
+            : x.startAmount
+          : toBN(0)
+      )
+      .reduce((a, b) => a.add(b), toBN(0))
+      .add(
+        consideration
+          .map((x) =>
+            x.itemType === 0
+              ? x.endAmount.gt(x.startAmount)
+                ? x.endAmount
+                : x.startAmount
+              : toBN(0)
+          )
+          .reduce((a, b) => a.add(b), toBN(0))
+      );
+
+    return {
+      order,
+      orderHash,
+      value,
+      orderStatus,
+      orderComponents,
+    };
+  };
+
+  /**
+   * Fulfill function, deciding which fulfill function to use
+   * @param order Order to fulfill
+   * @param value Value to be sent, get from createOrder
+   * @param criteriaResolvers   An array where each element contains a
+   *                            reference to a specific offer or
+   *                            consideration, a token identifier, and a proof
+   *                            that the supplied token identifier is
+   *                            contained in the merkle root held by the item
+   *                            in question's criteria element. Note that an
+   *                            empty criteria indicates that any
+   *                            (transferable) token identifier on the token
+   *                            in question is valid and that no associated
+   *                            proof needs to be supplied.
+   *
+   * @returns An ethers contract transaction
+   */
+  fulfillOrder = async (order, value, criteriaResolvers = []) => {
+    if (order.counter) {
+      throw new Error("Not orderComponents, give me order");
+    }
+    const { offer, consideration } = order.parameters;
+
+    if (order.numerator || criteriaResolvers.length > 0) {
+      return this.marketplaceContract.fulfillAdvancedOrder(
+        order,
+        criteriaResolvers,
+        toKey(0), // fulfillerConduitKey
+        constants.AddressZero, // recipient
+        {
+          value,
+        }
+      );
+    }
+
+    const cnItemType = consideration[0].itemType;
+    let isBasic;
+
+    // fulfillBasicOrder條件
+    // offer只能有一個 (20 || 721 || 1155)
+    // offer為20時，cn的第一項一定要是721 || 1155，且其他項也只能為20
+    // offer為721 || 1155時，cn每項的type都要相等，且只能為NATIVE || 20
+    // 其餘皆為 fullfillOrder
+    if (offer.length === 1) {
+      if (offer[0].itemType === 1) {
+        if (cnItemType === 2 || cnItemType === 3) {
+          isBasic = true;
+          for (const { itemType } of consideration.slice(1)) {
+            if (itemType === 0 || itemType === 2 || itemType === 3) {
+              isBasic = false;
+              break;
+            }
+          }
+        }
+      } else {
+        if (cnItemType === 0 || cnItemType === 1) {
+          isBasic = true;
+          for (const { itemType } of consideration.slice(1)) {
+            if (itemType !== cnItemType) {
+              isBasic = false;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (isBasic) {
+      const offerItemType = offer[0].itemType;
+      const cnItemType = consideration[0].itemType;
+      let basicOrderRouteType;
+
+      // 0, // EthForERC721
+      // 1, // EthForERC1155
+      // 2, // ERC20ForERC721
+      // 3, // ERC20ForERC1155
+      // 4, // ERC721forERC20
+      // 5, // ERC1155forERC20
+      if (offerItemType === 1) {
+        basicOrderRouteType = cnItemType === 2 ? 4 : 5;
+      } else if (offerItemType === 2) {
+        basicOrderRouteType = cnItemType === 0 ? 0 : 2;
+      } else {
+        basicOrderRouteType = cnItemType === 0 ? 1 : 3;
+      }
+      const basicOrderParameters = getBasicOrderParameters(
+        basicOrderRouteType,
+        order
+      );
+
+      return this.marketplaceContract.fulfillBasicOrder(basicOrderParameters, {
+        value,
+      });
+    }
+
+    return this.marketplaceContract.fulfillOrder(order, toKey(0), { value });
+  };
+
+  // fulfillAdvancedOrder
+
+  /**
+   * Cancel an arbitrary number of orders. Note that only the offerer
+   * or the zone of a given order may cancel it. Once cancelled, the order no longer fillable.
+   * Requires a signer
+   * @param {object[]|object} orderComponents An array  of an arbitrary number of orderComponents || one orderComponent
+   * @returns An ethers contract transaction
+   */
+  cancelOrders = (orderComponents) => {
+    const orderComponentsArr = Array.isArray(orderComponents)
+      ? orderComponents
+      : [orderComponents];
+    orderComponentsArr.forEach(({ counter }) => {
+      if (!counter) {
+        throw new Error("Not order, Give me orderComponents");
+      }
+    });
+    return this.marketplaceContract.cancel(orderComponentsArr);
+  };
+
+  /**
+   * @notice Validate an arbitrary number of orders, thereby registering their
+   *         signatures as valid and allowing the fulfiller to skip signature
+   *         verification on fulfillment. Note that validated orders may still
+   *         be unfulfillable due to invalid item amounts or other factors;
+   *         callers should determine whether validated orders are fulfillable
+   *         by simulating the fulfillment call prior to execution. Also note
+   *         that anyone can validate a signed order, but only the offerer can
+   *         validate an order without supplying a signature.
+   *
+   * @param {object[]|object} orders The orders || one order to validate.
+   *
+   * @return An ethers contract transaction
+   */
+  validateOrders = async (orders) => {
+    const orderArr = Array.isArray(orders) ? orders : [orders];
+    orderArr.forEach(({ counter }) => {
+      if (counter) throw new Error("Not orderComponents, give me order");
+    });
+    return this.marketplaceContract.validate(orderArr);
+  };
+
+  /**
+   * @notice Match an arbitrary number of orders, each with an arbitrary
+   *         number of items for offer and consideration along with a set of
+   *         fulfillments allocating offer components to consideration
+   *         components. Note that this function does not support
+   *         criteria-based or partial filling of orders (though filling the
+   *         remainder of a partially-filled order is supported).
+   *
+   * @param order             The order to be match.
+   * @param orderToMatch      The order to match.
+   * @param gapAsset          The asset for price difference
+   * @return An ethers contract transaction
+   */
+  matchOrders = async (order, orderToMatch, gapAsset) => {
+    // 處理fulfillment
+
+    const fArr = getFulFillmentArrByOrder(order, orderToMatch);
+
+    // 這邊先假設只有英式拍賣會出現 gapAsset
+    if (gapAsset) {
+      fArr[1][1].push([0, 1]);
+      order.parameters.consideration.push(gapAsset);
+    }
+
+    const fulfillment = getFulfillment(fArr);
+
+    return this.marketplaceContract.matchOrders(
+      [order, orderToMatch],
+      fulfillment
+    );
+  };
+
+  /**
+   * Looks up the order status for a given orderHash.
+   * @param orderHash The order hash in question.
+   *
+   * @return isValidated A boolean indicating whether the order in question
+   *                     has been validated (i.e. previously approved or
+   *                     partially filled).
+   * @return isCancelled A boolean indicating whether the order in question
+   *                     has been cancelled.
+   * @return totalFilled The total portion of the order that has been filled
+   *                     (i.e. the "numerator").
+   * @return totalSize   The total size of the order that is either filled or
+   *                     unfilled (i.e. the "denominator").
+   */
+  getOrderStatus = async (orderHash) => {
+    return await this.marketplaceContract.getOrderStatus(orderHash);
+  };
+
+  /**
+   * Function to get wrapped token address from specific network
+   * @param {string|number} [chainId]
+   * @returns {string} wrapped token address
+   */
+  getWrappedTokenAddress = (chainId) => {
+    return getWrappedNativeToken(chainId ?? this.chainId);
+  };
+
+  /**
+   * Function to get all formatted token
+   * @param {Object} asset The token asset
+   * @param {number} asset.itemType REQUIRED: Type of asset
+   * @param {string} [asset.token] Token Address of asset
+   * @param {string|number} [asset.startamount] startamount of asset
+   * @param {string|number} [asset.endAmount] endAmount of asset
+   * @param {string|number} [asset.tokenId] TokenId of asset
+   * @param {string} [asset.recipient] recipient of asset
+   * @param {string} [asset.root] root of asset
+   *
+   * @returns formatted NATIVE token
+   */
+  getItem = (asset) => {
     const {
-      token: oToken,
-      itemType: oItemType,
-      identifierOrCriteria: oId,
-    } = offer[oI];
-
-    for (let cnTMI = 0; cnTMI < cnToMatch.length; ++cnTMI) {
-      if (
-        oToken !== cnToMatch[cnTMI].token ||
-        (oItemType !== 1 &&
-          oId.toNumber() !== cnToMatch[cnTMI].identifierOrCriteria.toNumber())
-      )
-        continue;
-
-      fArr.push([[[0, oI]], [[1, cnTMI]]]);
-      if (oItemType !== 1) break;
+      itemType,
+      token,
+      startAmount,
+      endAmount,
+      tokenId,
+      recipient,
+      root,
+    } = asset;
+    switch (itemType) {
+      case 0: // NATIVE
+        return this.getItemETH(startAmount, endAmount, recipient);
+      case 1: // ERC20
+        return this.getItem20(token, startAmount, endAmount, recipient);
+      case 2: // ERC721
+        return this.getItem721(token, tokenId, recipient);
+      case 3: // ERC1155
+        return this.getItem1155(
+          token,
+          tokenId,
+          startAmount,
+          endAmount,
+          recipient
+        );
+      case 4: // ERC721_WITH_CRITERIA
+        return this.getItem721WithCriteria(token, root, recipient);
+      case 5: // ERC1155_WITH_CRITERIA
+        return this.getItem1155WithCriteria(
+          token,
+          root,
+          startAmount,
+          endAmount,
+          recipient
+        );
     }
+  };
 
-    if (oItemType !== 1) continue;
+  /**
+   * Function to get formatted NATIVE token
+   * @param {string|number} startAmount Amount when start selling
+   * @param {string|number} endAmount Amount when end selling
+   * @param recipient Address who recieve the amount of NATIVE token
+   * @returns formatted NATIVE token
+   */
+  getItemETH = (startAmount, endAmount = startAmount, recipient) =>
+    getOfferOrConsiderationItem(
+      0,
+      constants.AddressZero,
+      0,
+      parseEther(String(startAmount)),
+      parseEther(String(endAmount)),
+      recipient
+    );
 
-    for (let cnI = 0; cnI < cn.length; ++cnI) {
-      if (
-        oToken !== cn[cnI].token ||
-        (oItemType !== 1 &&
-          oId.toNumber() !== cn[cnI].identifierOrCriteria.toNumber())
-      )
-        continue;
+  /**
+   * Function to get formatted ERC20 token
+   * @notice  Some ERC20 token like USDC has only 6 decimal places (10^6),
+   *          thus 1 usdc should input amount with (1 / 10^12).
+   *          This should be handled pretty carefully.
+   *
+   * @param token Token address
+   * @param {string|number} startAmount Amount when start selling
+   * @param {string|number} endAmount Amount when end selling
+   * @param recipient Address who recieve the amount of ERC20 token
+   * @returns formatted ERC20 token
+   */
+  getItem20 = (token, startAmount, endAmount = startAmount, recipient) =>
+    getOfferOrConsiderationItem(
+      1,
+      token,
+      0,
+      parseEther(String(startAmount)),
+      parseEther(String(endAmount)),
+      recipient
+    );
 
-      fArr.push([[[0, oI]], [[0, cnI]]]);
-      if (oItemType !== 1) break;
-    }
-  }
+  /**
+   * Function to get formatted ERC721 token
+   * @param token Token address
+   * @param {string|number} identifierOrCriteria TokenId
+   * @param recipient Address who recieve the amount of ERC20 token
+   * @returns formatted ERC721 token
+   */
+  getItem721 = (token, identifierOrCriteria, recipient) =>
+    getOfferOrConsiderationItem(
+      2,
+      token,
+      identifierOrCriteria,
+      1,
+      1,
+      recipient
+    );
 
-  for (let oTMI = 0; oTMI < offerToMatch.length; ++oTMI) {
-    const {
-      token: oToken,
-      itemType: oItemType,
-      identifierOrCriteria: oId,
-    } = offerToMatch[oTMI];
+  /**
+   * Function to get formatted ERC721 token with criteria
+   * @param token Token address
+   * @param {string|number} identifierOrCriteria root of merkleTree
+   * @param recipient Address who recieve the amount of ERC20 token
+   * @returns formatted ERC721 token with criteria
+   */
+  getItem721WithCriteria = (token, identifierOrCriteria, recipient) =>
+    getOfferOrConsiderationItem(
+      4,
+      token,
+      identifierOrCriteria,
+      1,
+      1,
+      recipient
+    );
 
-    for (let cnIn = 0; cnIn < cn.length; ++cnIn) {
-      if (
-        oToken !== cn[cnIn].token ||
-        (oItemType !== 1 &&
-          oId.toNumber() !== cn[cnIn].identifierOrCriteria.toNumber())
-      )
-        continue;
+  /**
+   * Function to get formatted ERC1155 token
+   * @param token Token address
+   * @param {string|number} identifierOrCriteria TokenId
+   * @param {string|number} startAmount Amount when start selling
+   * @param {string|number} endAmount Amount when end selling
+   * @param recipient Address who recieve the amount of ERC1155 token
+   * @returns formatted ERC1155 token
+   */
+  getItem1155 = (
+    token,
+    identifierOrCriteria,
+    startAmount = 1,
+    endAmount = startAmount,
+    recipient
+  ) =>
+    getOfferOrConsiderationItem(
+      3,
+      token,
+      identifierOrCriteria,
+      startAmount,
+      endAmount,
+      recipient
+    );
 
-      fArr.push([[[1, oTMI]], [[0, cnIn]]]);
+  /**
+   * Function to get formatted ERC1155 token with criteria
+   * @param token Token address
+   * @param {string|number} identifierOrCriteria root of merkleTree
+   * @param {string|number} startAmount Amount when start selling
+   * @param {string|number} endAmount Amount when end selling
+   * @param recipient Address who recieve the amount of ERC1155 token
+   * @returns formatted ERC1155 token with criteria
+   */
+  getItem1155WithCriteria = (
+    token,
+    identifierOrCriteria,
+    startAmount = 1,
+    endAmount = startAmount,
+    recipient
+  ) =>
+    getOfferOrConsiderationItem(
+      5,
+      token,
+      identifierOrCriteria,
+      startAmount,
+      endAmount,
+      recipient
+    );
 
-      if (oItemType !== 1) break;
-    }
+  buildResolver = (
+    orderIndex,
+    side, // 0 | 1
+    index,
+    identifier,
+    criteriaProof
+  ) => ({
+    orderIndex,
+    side,
+    index,
+    identifier,
+    criteriaProof,
+  });
+}
 
-    if (oItemType !== 1) continue;
-
-    for (let cnTMIn = 0; cnTMIn < cnToMatch.length; ++cnTMIn) {
-      if (
-        oToken !== cnToMatch[cnTMIn].token ||
-        (oItemType !== 1 &&
-          oId.toNumber() !== cnToMatch[cnTMIn].identifierOrCriteria.toNumber())
-      )
-        continue;
-
-      fArr.push([[[1, oTMI]], [[1, cnTMIn]]]);
-
-      if (oItemType !== 1) break;
-    }
-  }
-
-  return fArr;
-};
+export default SDK;
