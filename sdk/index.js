@@ -118,7 +118,7 @@ class SDK {
    * @param extraCheap
    * @returns
    */
-  createOrder = async (
+  createOrder = async ({
     offer,
     consideration,
     orderType = 0,
@@ -129,7 +129,7 @@ class SDK {
     zoneHash = constants.HashZero,
     conduitKey = constants.HashZero,
     extraCheap = false
-  ) => {
+  }) => {
     const offerer = this.signer;
     const marketplaceContract = this.marketplaceContract;
     const offerAddress = await offerer.getAddress();
@@ -179,8 +179,8 @@ class SDK {
     const order = {
       parameters: orderParameters,
       signature: !extraCheap ? flatSig : convertSignatureToEIP2098(flatSig),
-      numerator: 1, // only used for advanced orders
-      denominator: 1, // only used for advanced orders
+      // numerator: 1, // only used for advanced orders
+      // denominator: 1, // only used for advanced orders
       extraData: "0x", // only used for advanced orders
     };
 
@@ -232,13 +232,15 @@ class SDK {
    *
    * @returns An ethers contract transaction
    */
-  fulfillOrder = async (order, value, criteriaResolvers = []) => {
+  fulfillOrder = async (order, value, tips =[], criteriaResolvers = []) => {
     if (order.counter) {
       throw new Error("Not orderComponents, give me order");
     }
+
     const { offer, consideration } = order.parameters;
 
     if (order.numerator || criteriaResolvers.length > 0) {
+      order.parameters.consideration = [...order.parameters.consideration, ...tips]
       return this.marketplaceContract.fulfillAdvancedOrder(
         order,
         criteriaResolvers,
@@ -300,16 +302,19 @@ class SDK {
       } else {
         basicOrderRouteType = cnItemType === 0 ? 1 : 3;
       }
+
       const basicOrderParameters = getBasicOrderParameters(
         basicOrderRouteType,
-        order
+        order,
+        false,
+        tips
       );
 
       return this.marketplaceContract.fulfillBasicOrder(basicOrderParameters, {
         value,
       });
     }
-
+    order.parameters.consideration = [...order.parameters.consideration, ...tips]
     return this.marketplaceContract.fulfillOrder(order, toKey(0), { value });
   };
 

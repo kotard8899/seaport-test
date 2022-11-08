@@ -2,6 +2,7 @@ import styles from "../styles/Home.module.css";
 import { useState, useEffect, useCallback } from "react";
 import { W3WalletDriver, useW3Wallet } from "../components/w3wallet";
 import SDK from "../sdk"
+import { BigNumber, constants, utils } from "ethers";
 
 const OfferItem = ({ offer, setOffer, approve, cn }) => {
   const { itemType } = offer
@@ -158,7 +159,8 @@ export default function Home() {
   })
 
   const account = accounts[0];
-
+  const zone = "0x403d402b474700febee590297325e041d80a77fa"
+  // https://testnet.ftmscan.com/address/0x403d402b474700febee590297325e041d80a77fa#code
   const checkIsApproved = useCallback(async (offer, setState) => {
     if ((offer.itemType === 2 || offer.itemType === 4) && !offer.tokenId) return
     const isApproved = await sdk.loadApprovalStatus(offer, account)
@@ -195,9 +197,9 @@ export default function Home() {
     cn4.startAmount && consideration.push(sdk.getItem(cn4))
     cn5.startAmount && consideration.push(sdk.getItem(cn5))
     const { order, value, orderComponents, orderHash } = await sdk.createOrder(
-      offer,
+      {offer,
       consideration,
-      0,
+      orderType:2}
     )
     setOrder(order)
     setOffer(offer)
@@ -207,12 +209,20 @@ export default function Home() {
   }
 
   const handleFullfill = async () => {
-    const tx = await sdk.fulfillOrder(order, value)
+    const cc = {...order.parameters.consideration[0]}
+    cc.recipient = "0x7ebb6000feA30E11683A896cB745A5D51DdEEc6F"
+    // cc.amount = utils.parseEther("1")
+    // cc.endAmount = utils.parseEther("1")
+    // order.parameters.consideration.push(cc)
+    // _order.parameters.totalOriginalConsiderationItems = 2
+    // console.log(_order)
+    // console.log(cc)
+    const tx = await sdk.fulfillOrder({order, value:utils.parseEther("2"), tips:[cc]})
     await tx.wait();
   }
 
   const validate = async () => {
-    const tx = sdk.validateOrders(orderComponents)
+    const tx = sdk.validateOrders(order)
     const receipt = await (await tx).wait();
     console.log(receipt)
   }

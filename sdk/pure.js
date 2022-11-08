@@ -263,18 +263,6 @@ const toFulfillment = (offerArr, considerationsArr) => ({
   considerationComponents: toFulfillmentComponents(considerationsArr),
 });
 
-export const getFulfillment = (
-  arr = [
-    [[[0, 0]], [[1, 0]]],
-    [[[1, 0]], [[0, 0]]],
-    [[[1, 0]], [[0, 1]]],
-    [[[1, 0]], [[0, 2]]],
-  ]
-) =>
-  arr.map(([offerArr, considerationArr]) =>
-    toFulfillment(offerArr, considerationArr)
-  );
-
 export const getBasicOrderParameters = (
   basicOrderRouteType,
   order,
@@ -307,9 +295,21 @@ export const getBasicOrderParameters = (
     ...order.parameters.consideration
       .slice(1)
       .map(({ endAmount, recipient }) => ({ amount: endAmount, recipient })),
-    ...tips,
+    ...tips.map(({ endAmount, recipient }) => ({ amount: endAmount, recipient })),
   ],
 });
+
+export const getFulfillment = (
+  arr = [
+    [[[0, 0]], [[1, 0]]],
+    [[[1, 0]], [[0, 0]]],
+    [[[1, 0]], [[0, 1]]],
+    [[[1, 0]], [[0, 2]]],
+  ]
+) =>
+  arr.map(([offerArr, considerationArr]) =>
+    toFulfillment(offerArr, considerationArr)
+  );
 
 export const getFulFillmentArrByOrder = (order, orderToMatch) => {
   const { offer, consideration: cn } = order.parameters;
@@ -341,13 +341,11 @@ export const getFulFillmentArrByOrder = (order, orderToMatch) => {
     for (let cnI = 0; cnI < cn.length; ++cnI) {
       if (
         oToken !== cn[cnI].token ||
-        (oItemType !== 1 &&
-          oId.toNumber() !== cn[cnI].identifierOrCriteria.toNumber())
+        oId.toNumber() !== cn[cnI].identifierOrCriteria.toNumber()
       )
         continue;
 
       fArr.push([[[0, oI]], [[0, cnI]]]);
-      if (oItemType !== 1) break;
     }
   }
 
@@ -376,14 +374,11 @@ export const getFulFillmentArrByOrder = (order, orderToMatch) => {
     for (let cnTMIn = 0; cnTMIn < cnToMatch.length; ++cnTMIn) {
       if (
         oToken !== cnToMatch[cnTMIn].token ||
-        (oItemType !== 1 &&
-          oId.toNumber() !== cnToMatch[cnTMIn].identifierOrCriteria.toNumber())
+        oId.toNumber() !== cnToMatch[cnTMIn].identifierOrCriteria.toNumber()
       )
         continue;
 
       fArr.push([[[1, oTMI]], [[1, cnTMIn]]]);
-
-      if (oItemType !== 1) break;
     }
   }
 

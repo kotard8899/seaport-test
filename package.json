@@ -11,6 +11,7 @@
   "dependencies": {
     "@magic-ext/connect": "^0.1.6",
     "@metamask/detect-provider": "^1.2.0",
+    "@opensea/seaport-js": "^1.0.8",
     "ethers": "^5.6.9",
     "magic-sdk": "^8.1.1",
     "next": "12.2.2",
