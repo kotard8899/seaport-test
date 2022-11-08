@@ -25,7 +25,7 @@ const Campaign = () => {
   const [referrer, setReferrer] = useState(constants.AddressZero) 
 
   const sign = async () => {
-    const nonce = "You are 0x54a6ad13e5ae83a2dfd42440f7ab6d90c03e01d3 going to get id {1} NFT.  Your recommender is 0x64568ace195d79423a4836e84babe4470c2c2067";
+    const nonce = generateNonce();
     const hash = utils.solidityKeccak256(
       ["address", "string", "string"],
       [account, nonce, tokenUri]
