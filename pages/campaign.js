@@ -10,7 +10,7 @@ const Campaign = () => {
   const account = accounts[0];
   const contract =
     eProvider &&
-    new Contract("0x682Eb788daA1181557F75a4b925664FA41c89dcE", camABI, signer);
+    new Contract("0x38a5dab4618af5759f5f71c84908c25fff5e4481", camABI, signer);
   const [sigEndGame, setSigEndGame] = useState(null);
   const [nonceEndGame, setNonceEndGame] = useState(null);
 
