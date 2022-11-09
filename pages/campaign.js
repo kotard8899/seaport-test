@@ -10,9 +10,7 @@ const Campaign = () => {
   const account = accounts[0];
   const contract =
     eProvider &&
-    new Contract("0x38a5dab4618af5759f5f71c84908c25fff5e4481", camABI, signer);
-  const [sigEndGame, setSigEndGame] = useState(null);
-  const [nonceEndGame, setNonceEndGame] = useState(null);
+    new Contract("0x98F30E87eBda3fa6577F52B113DC8aD4E199236c", camABI, signer);
 
   const signatureSigner = eProvider && new Wallet("dced2ee6587d34b8653a75decb7caa3e5ccd1013fcfae910ba223791d2dfb5df", eProvider)
 
@@ -21,39 +19,36 @@ const Campaign = () => {
   const tokenUri = "ipfs://tokenUri/"
   const tokenUriNew = "ipfs://tokenUri_new/"
   const level = 5
-  // const referrer = "0x64568ACE195D79423a4836e84BabE4470c2C2067"
   const [referrer, setReferrer] = useState(constants.AddressZero) 
 
   const sign = async () => {
-    const nonce = generateNonce();
     const hash = utils.solidityKeccak256(
-      ["address", "string", "string"],
-      [account, nonce, tokenUri]
+      ["address", "string", "address"],
+      [account, tokenUri, referrer]
     );
     const hashBytes = utils.arrayify(hash);
     const flatSig = await signatureSigner.signMessage(hashBytes);
-    return [nonce, flatSig]
+    return flatSig
   };
 
   const mint = async () => {
-    const [nonce, sig] = await sign()
-    await contract.mint(nonce, sig, tokenUri, referrer);
+    const sig = await sign()
+    await contract.mint(sig, tokenUri, referrer);
   };
 
   const signEndGame = async () => {
-    const nonce = generateNonce();
     const hash = utils.solidityKeccak256(
-      ["address", "string", "uint256", "string"],
-      [account, nonce, level, tokenUriNew]
+      ["address", "uint256", "string"],
+      [account, level, tokenUriNew]
     );
     const hashBytes = utils.arrayify(hash);
     const flatSig = await signatureSigner.signMessage(hashBytes);
-    return [nonce, flatSig]
+    return flatSig
   };
 
   const endGame  = async () => {
-    const [nonce, sig] = await signEndGame()
-    await contract.endGame(nonce, level, sig, tokenUriNew);
+    const sig = await signEndGame()
+    await contract.endGame(level, sig, tokenUriNew);
   };
 
   return (
